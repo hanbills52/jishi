@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# 打包产物与缓存
+build/
+build_smoke/
+dist/
+dist_smoke/
+*.spec
+
+# NER 大模型（约 800MB，超 GitHub 单文件限制；按需本地放置 app/resources/models/ner/）
+app/resources/models/
+
+# 运行日志与调试截图
+crash.log
+pycheck_err.log
+page2_debug.png
+
+# 本地测试输出：含真实案件文档与映射，严禁上传
+测试输出/
+
+# 本地手工调试脚本：硬编码本机案件文档路径，不上传
+tests/manual_render.py
+tests/manual_real_scan.py
+
+# IDE
+.idea/
+.vscode/
