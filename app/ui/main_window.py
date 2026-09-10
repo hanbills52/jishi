@@ -178,8 +178,9 @@ class MainWindow(QMainWindow):
 
     def _add_and_scan(self, paths: list[str]) -> None:
         added, rejected = self.pipeline.add_paths(paths)
-        if rejected:
-            QMessageBox.information(self, "部分文件未导入", "\n".join(rejected))
+        messages = rejected + list(self.pipeline.import_warnings)
+        if messages:
+            QMessageBox.information(self, "导入提示", "\n".join(messages))
         if not added:
             return
         self.queue_widget.refresh(self.pipeline.docs)
@@ -227,6 +228,8 @@ class MainWindow(QMainWindow):
         self._scan_done += 1
         self.progress.setValue(self._scan_done)
         tag = "（扫描件 OCR，较慢）" if getattr(doc, "scanned", False) else ""
+        if getattr(doc, "big", False):
+            tag = f"（超大文件 {doc.pages} 页，较慢）"
         self.status_label.setText(
             f"已扫描 {self._scan_done}/{self._scan_total}：{doc.name}{tag}")
         self.queue_widget.refresh(self.pipeline.docs)

@@ -35,12 +35,15 @@ class FileQueueWidget(QListWidget):
             icon = _STATUS_ICON.get(doc.status, "○")
             suffix = "（需重扫）" if doc.need_rescan else ""
             tag = "🖨 " if getattr(doc, "scanned", False) else ""  # 扫描件标记
-            item = QListWidgetItem(f"{icon} {tag}{doc.name}  [{doc.status}{suffix}]")
+            big = "⏱ " if getattr(doc, "big", False) else ""      # 超大文件标记
+            item = QListWidgetItem(f"{icon} {tag}{big}{doc.name}  [{doc.status}{suffix}]")
             color = _STATUS_COLOR.get(doc.status)
             if color:
                 item.setForeground(QColor(color))
             if doc.status == ST_FAILED and doc.error:
                 item.setToolTip(doc.error)
+            elif getattr(doc, "big", False):
+                item.setToolTip(f"超大文件（{doc.pages} 页）：扫描较慢，已排到批次最后")
             elif getattr(doc, "scanned", False):
                 item.setToolTip("扫描件：OCR 识别可能有误差，请人工复核待确认项")
             self.addItem(item)
