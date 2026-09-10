@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="ORuddQQZgHOjUQ2g6jDUqg">
+<head data-page-node-id="ggNWN2oCTha4mfimy3E9U2">
+<meta charset="UTF-8" data-page-node-id="nqmhhB9YcRaTctCMkxuaMD">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="CXhPxgPJOUHFvndRCHKNF9">
+<title>基石 · 本地化批量文档脱敏工具</title>
+<meta name="description" content="基石：纯本地离线运行的中文文档脱敏工具。规则+词典+NER 三层识别，AES 加密映射与回溯还原，让敏感信息止步于本机。" data-page-node-id="GiM9y6IMAgmeO1eMCFbSoD">
+<style>
+/* ============ 基础与变量（Apple 浅色风） ============ */
+:root{
+  --bg:#fbfbfd; --bg2:#f5f5f7; --surface:#ffffff; --surface2:#fafafa;
+  --line:rgba(0,0,0,.08); --line2:rgba(0,0,0,.13);
+  --txt:#1d1d1f; --muted:#6e6e73; --faint:#86868b;
+  --blue:#0071e3; --blue-d:#0077ed;
+  --cyan:#0071e3; --green:#248a3d; --violet:#8944ab; --teal:#0a84ff;
+  --amber:#c93400; --rose:#d70015; --gold:#b25000;
+  --grad:linear-gradient(120deg,#0071e3 0%,#42a4ff 100%);
+  --r:14px; --r-lg:22px;
+  --shadow:0 2px 16px rgba(0,0,0,.05);
+  --shadow-lg:0 12px 44px rgba(0,0,0,.09);
+  --ease:cubic-bezier(.22,.9,.32,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,-apple-system,sans-serif;
+  background:var(--bg); color:var(--txt); line-height:1.65;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+::selection{background:rgba(0,113,227,.18)}
+a{color:inherit;text-decoration:none}
+img{max-width:100%}
+h1,h2,h3,h4{line-height:1.2;font-weight:800;letter-spacing:.5px}
+.container{width:min(1180px,92%);margin:0 auto}
+.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.mono{font-family:ui-monospace,"Cascadia Code",Consolas,monospace}
+section{position:relative;padding:96px 0}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;letter-spacing:2px;
+  color:var(--blue);text-transform:uppercase;font-weight:700;margin-bottom:14px}
+.kicker::before{content:"";width:26px;height:1.5px;background:var(--blue);display:inline-block}
+.sec-title{font-size:clamp(26px,3.4vw,40px);margin-bottom:12px}
+.sec-sub{color:var(--muted);font-size:16px;max-width:640px}
+.center{text-align:center}
+.center .sec-sub{margin:0 auto}
+.center .kicker{justify-content:center}
+
+/* ============ 滚动显现 ============ */
+.reveal{opacity:0;transform:translateY(34px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+.reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}
+.reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}
+
+/* ============ 导航 ============ */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;transition:.3s;
+  backdrop-filter:blur(0px);border-bottom:1px solid transparent}
+nav.scrolled{background:rgba(251,251,253,.82);backdrop-filter:blur(16px) saturate(1.5);border-bottom-color:var(--line)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:66px}
+.logo{display:flex;align-items:center;gap:11px;font-weight:800;font-size:19px;letter-spacing:1px}
+.logo-mark{width:34px;height:34px;border-radius:9px;background:var(--grad);display:grid;place-items:center;
+  font-size:17px;font-weight:900;color:#fff;box-shadow:0 4px 14px rgba(0,113,227,.28)}
+.nav-links{display:flex;gap:30px;align-items:center}
+.nav-links a{color:var(--muted);font-size:14.5px;position:relative;transition:.25s;padding:6px 0}
+.nav-links a::after{content:"";position:absolute;left:0;bottom:0;width:0;height:2px;background:var(--blue);
+  border-radius:2px;transition:width .3s var(--ease)}
+.nav-links a:hover,.nav-links a.active{color:var(--txt)}
+.nav-links a:hover::after,.nav-links a.active::after{width:100%}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:12px 26px;border-radius:980px;
+  font-weight:700;font-size:14.5px;cursor:pointer;border:none;transition:.28s var(--ease);white-space:nowrap}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 4px 14px rgba(0,113,227,.24)}
+.btn-primary:hover{background:var(--blue-d);transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,113,227,.3)}
+.btn-ghost{background:transparent;color:var(--txt);border:1px solid var(--line2)}
+.btn-ghost:hover{background:rgba(0,0,0,.045);transform:translateY(-1px)}
+.btn-sm{padding:9px 18px;font-size:13px}
+.hamburger{display:none;background:none;border:none;color:var(--txt);font-size:24px;cursor:pointer}
+
+/* ============ Hero ============ */
+#hero{min-height:100vh;display:flex;align-items:center;padding-top:90px;overflow:hidden}
+.hero-glow{position:absolute;width:640px;height:640px;border-radius:50%;filter:blur(130px);
+  opacity:.6;pointer-events:none}
+.hg1{background:radial-gradient(circle,rgba(0,113,227,.12),transparent 65%);top:-160px;left:-140px}
+.hg2{background:radial-gradient(circle,rgba(137,68,171,.09),transparent 65%);bottom:-180px;right:-120px}
+.hero-grid-lines{position:absolute;inset:0;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:56px 56px;opacity:.5;
+  -webkit-mask-image:radial-gradient(ellipse 80% 70% at 50% 40%,#000 30%,transparent 75%);
+  mask-image:radial-gradient(ellipse 80% 70% at 50% 40%,#000 30%,transparent 75%);}
+.hero-inner{position:relative;display:grid;grid-template-columns:1.05fr .95fr;gap:60px;align-items:center;z-index:2}
+.hero-badge{display:inline-flex;align-items:center;gap:9px;padding:7px 16px;border-radius:99px;
+  background:rgba(0,113,227,.08);border:1px solid rgba(0,113,227,.2);font-size:12.5px;color:var(--blue);
+  font-weight:600;margin-bottom:26px}
+.hero-badge .dot{width:7px;height:7px;border-radius:50%;background:#30d158;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(48,209,88,.45)}50%{box-shadow:0 0 0 6px rgba(48,209,88,0)}}
+h1.hero-title{font-size:clamp(34px,5.2vw,62px);line-height:1.12;margin-bottom:22px}
+.hero-sub{color:var(--muted);font-size:17px;max-width:520px;margin-bottom:34px}
+.hero-cta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:44px}
+.hero-stats{display:flex;gap:34px;flex-wrap:wrap}
+.hstat .num{font-size:27px;font-weight:800;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hstat .lbl{font-size:12.5px;color:var(--faint);letter-spacing:.5px}
+
+/* Hero 演示窗 */
+.hero-demo{background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-lg);box-shadow:var(--shadow-lg);overflow:hidden;transform:perspective(1200px) rotateY(-7deg);
+  transition:transform .6s var(--ease)}
+.hero-demo:hover{transform:perspective(1200px) rotateY(-2deg)}
+.win-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--surface2);
+  border-bottom:1px solid var(--line)}
+.win-dot{width:11px;height:11px;border-radius:50%}
+.win-dot.r{background:#ff5f57}.win-dot.y{background:#febc2e}.win-dot.g{background:#28c840}
+.win-title{margin-left:8px;font-size:12px;color:var(--faint);letter-spacing:1px}
+.hero-doc{padding:20px 22px;font-size:13.5px;line-height:2.1;color:var(--muted)}
+.hero-doc .ent{border-radius:4px;padding:1px 4px;font-weight:600;animation:entIn .6s var(--ease) both}
+@keyframes entIn{from{opacity:0;filter:blur(4px)}to{opacity:1;filter:blur(0)}}
+.ent-rule{background:rgba(36,138,61,.12);color:var(--green);border-bottom:1.5px solid var(--green)}
+.ent-lex{background:rgba(0,113,227,.1);color:var(--blue);border-bottom:1.5px solid var(--blue)}
+.ent-mask{background:rgba(137,68,171,.1);color:var(--violet);border-bottom:1.5px solid var(--violet)}
+.hero-scanline{position:absolute;left:0;right:0;height:52px;top:64px;
+  background:linear-gradient(180deg,transparent,rgba(0,113,227,.1),transparent);
+  animation:scan 3.4s ease-in-out infinite;pointer-events:none}
+@keyframes scan{0%,100%{transform:translateY(0)}50%{transform:translateY(190px)}}
+.hero-demo-foot{display:flex;justify-content:space-between;padding:10px 22px;border-top:1px solid var(--line);
+  font-size:11px;color:var(--faint)}
+.float-tag{position:absolute;padding:7px 13px;border-radius:10px;font-size:12px;font-weight:700;
+  background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);
+  animation:floaty 4.5s ease-in-out infinite}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.ft1{top:16%;right:-16px;color:var(--green);animation-delay:.4s}
+.ft2{bottom:24%;left:-22px;color:var(--blue)}
+.ft3{top:54%;right:-24px;color:var(--violet);animation-delay:.9s}
+
+/* ============ 信任条 ============ */
+.trustbar{border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  background:var(--surface2);padding:26px 0}
+.trust-inner{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center}
+.trust-item{display:flex;align-items:center;gap:11px;color:var(--muted);font-size:14px;font-weight:600}
+.trust-item .ico{font-size:19px}
+
+/* ============ 核心价值 ============ */
+.values{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;margin-top:56px}
+.vcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:30px 26px;
+  transition:.4s var(--ease);position:relative;overflow:hidden}
+.vcard:hover{transform:translateY(-8px);border-color:rgba(0,113,227,.3);box-shadow:var(--shadow-lg)}
+.vico{width:50px;height:50px;border-radius:13px;display:grid;place-items:center;font-size:23px;margin-bottom:20px;
+  background:rgba(0,113,227,.09);border:1px solid rgba(0,113,227,.16)}
+.vcard h3{font-size:19px;margin-bottom:10px}
+.vcard p{color:var(--muted);font-size:14px}
+
+/* ============ 交互演示器 ============ */
+#demo{background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%)}
+.demo-shell{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg);overflow:hidden;margin-top:50px}
+.demo-toolbar{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--surface2);
+  border-bottom:1px solid var(--line);flex-wrap:wrap}
+.demo-toolbar .spacer{flex:1}
+.step-btn{padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700;border:none;cursor:pointer;
+  transition:.25s;display:inline-flex;align-items:center;gap:7px}
+.step1{background:rgba(0,113,227,.1);color:var(--blue);border:1px solid rgba(0,113,227,.28)}
+.step1:hover:not(:disabled){background:rgba(0,113,227,.18)}
+.step2{background:rgba(36,138,61,.1);color:var(--green);border:1px solid rgba(36,138,61,.28)}
+.step2:hover:not(:disabled){background:rgba(36,138,61,.18)}
+.step-btn:disabled{opacity:.38;cursor:not-allowed}
+.view-toggle{display:flex;background:rgba(0,0,0,.05);border-radius:9px;padding:3px;border:1px solid var(--line)}
+.view-toggle button{padding:7px 16px;border:none;background:none;color:var(--muted);font-size:12.5px;
+  font-weight:700;border-radius:7px;cursor:pointer;transition:.2s}
+.view-toggle button.on{background:var(--blue);color:#fff}
+.demo-body{display:grid;grid-template-columns:1.5fr 1fr;min-height:420px}
+.demo-doc{padding:30px 34px;font-size:15.5px;line-height:2.35;color:var(--txt);border-right:1px solid var(--line)}
+.demo-doc .tok{border-radius:5px;padding:1px 5px;font-weight:600;position:relative;cursor:default;
+  transition:.3s;border-bottom:2px solid transparent}
+.tok.scan-rule{background:rgba(36,138,61,.12);color:var(--green);border-bottom-color:var(--green)}
+.tok.scan-lex{background:rgba(0,113,227,.1);color:var(--blue);border-bottom-color:var(--blue)}
+.tok.scan-ner{background:rgba(137,68,171,.1);color:var(--violet);border-bottom-color:var(--violet)}
+.tok.pending{border-bottom-style:dashed}
+.tok.masked{background:rgba(0,113,227,.14);color:var(--blue);border-bottom-color:var(--blue)}
+.tok .tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) scale(.92);
+  background:var(--surface);border:1px solid var(--line2);border-radius:9px;padding:8px 12px;font-size:11.5px;
+  line-height:1.5;color:var(--muted);white-space:nowrap;opacity:0;pointer-events:none;transition:.2s;z-index:20;
+  box-shadow:var(--shadow-lg);font-weight:500}
+.tok:hover .tip{opacity:1;transform:translateX(-50%) scale(1)}
+.tip b{color:var(--txt)}
+.demo-panel{padding:22px;background:var(--surface2);overflow-y:auto;max-height:520px}
+.panel-title{font-size:12px;letter-spacing:1.5px;color:var(--faint);text-transform:uppercase;
+  font-weight:700;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.adopt-all{font-size:11px;color:var(--amber);cursor:pointer;border:1px solid rgba(201,52,0,.3);
+  padding:3px 10px;border-radius:99px;background:rgba(201,52,0,.07);transition:.2s}
+.adopt-all:hover{background:rgba(201,52,0,.14)}
+.mgroup{margin-bottom:20px}
+.mgroup h5{font-size:12.5px;color:var(--muted);margin-bottom:9px;display:flex;gap:8px;align-items:center;font-weight:700}
+.mgroup h5 .cnt{background:rgba(0,0,0,.08);border-radius:99px;padding:1px 8px;font-size:10.5px}
+.mitem{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--surface);
+  border:1px solid var(--line);border-radius:10px;margin-bottom:7px;font-size:12.5px;transition:.25s}
+.mitem .orig{color:var(--txt);font-weight:600;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mitem .arrow{color:var(--faint)}
+.mitem .alias{color:var(--blue);font-weight:700}
+.mitem .layertag{margin-left:auto;font-size:9.5px;padding:2px 7px;border-radius:5px;letter-spacing:.5px;font-weight:700}
+.ly-rule{background:rgba(36,138,61,.13);color:var(--green)}
+.ly-lex{background:rgba(0,113,227,.11);color:var(--blue)}
+.ly-ner{background:rgba(137,68,171,.11);color:var(--violet)}
+.switch{width:34px;height:19px;border-radius:99px;background:rgba(0,0,0,.18);position:relative;cursor:pointer;
+  transition:.25s;flex-shrink:0;border:none}
+.switch::after{content:"";position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2.5px;left:3px;transition:.25s var(--ease);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.switch.on{background:#30d158}
+.switch.on::after{left:17px}
+.adopt-btn{font-size:10.5px;padding:3px 10px;border-radius:6px;border:1px solid rgba(201,52,0,.3);
+  background:rgba(201,52,0,.08);color:var(--amber);cursor:pointer;font-weight:700;transition:.2s;margin-left:auto}
+.adopt-btn:hover{background:rgba(201,52,0,.16)}
+.empty-hint{color:var(--faint);font-size:13px;text-align:center;padding:40px 20px;line-height:2}
+.demo-log{padding:12px 22px;border-top:1px solid var(--line);font-size:12px;color:var(--faint);
+  display:flex;gap:18px;flex-wrap:wrap;background:var(--surface2)}
+.demo-log .ok{color:var(--green)}
+
+/* ============ 功能模块 ============ */
+.feat{display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center;margin-bottom:120px}
+.feat:last-child{margin-bottom:0}
+.feat.rev .feat-copy{order:2}
+.feat-num{font-size:13px;font-weight:800;color:var(--blue);letter-spacing:2px;margin-bottom:10px}
+.feat h3{font-size:clamp(22px,2.6vw,30px);margin-bottom:16px}
+.feat p{color:var(--muted);font-size:15px;margin-bottom:14px}
+.feat-list{list-style:none;margin-top:18px}
+.feat-list li{display:flex;gap:11px;margin-bottom:11px;color:var(--muted);font-size:14px;align-items:flex-start}
+.feat-list li::before{content:"✓";color:var(--green);font-weight:800;flex-shrink:0}
+.feat-visual{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:28px;box-shadow:var(--shadow);min-height:300px;display:flex;flex-direction:column;justify-content:center}
+
+/* 三层识别 pipeline */
+.pipeline{display:flex;flex-direction:column;gap:13px}
+.pstage{display:flex;align-items:center;gap:15px;padding:15px 18px;border-radius:12px;
+  background:var(--surface2);border:1px solid var(--line);transition:.35s var(--ease);opacity:.5}
+.pstage.lit{opacity:1;border-color:currentColor;box-shadow:0 6px 18px -8px currentColor}
+.pstage .pico{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:18px;flex-shrink:0}
+.ps1{color:var(--green)}.ps1 .pico{background:rgba(36,138,61,.12)}
+.ps2{color:var(--blue)}.ps2 .pico{background:rgba(0,113,227,.11)}
+.ps3{color:var(--violet)}.ps3 .pico{background:rgba(137,68,171,.11)}
+.pstage .ptxt{flex:1}
+.pstage .ptxt b{display:block;font-size:14px;color:var(--txt)}
+.pstage .ptxt span{font-size:12px;color:var(--muted)}
+.pstage .pconf{font-size:11px;font-weight:700;opacity:.9}
+.p-arrow{text-align:center;color:var(--faint);font-size:16px;line-height:1}
+.conf-meter{margin-top:18px}
+.conf-meter .cm-lbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:7px}
+.cm-track{height:9px;border-radius:99px;background:rgba(0,0,0,.08);overflow:hidden;position:relative}
+.cm-fill{height:100%;width:0;border-radius:99px;background:var(--grad);transition:width 1.4s var(--ease)}
+.cm-ticks{display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:5px}
+.cm-th{position:absolute;top:-3px;bottom:-3px;width:1.5px;background:rgba(0,0,0,.3)}
+
+/* 代称生成器 */
+.alias-gen{text-align:center}
+.alias-display{font-size:54px;font-weight:900;background:var(--grad);-webkit-background-clip:text;
+  background-clip:text;color:transparent;min-height:78px;display:flex;align-items:center;justify-content:center;
+  letter-spacing:2px}
+.alias-cat{display:flex;gap:8px;justify-content:center;margin:20px 0;flex-wrap:wrap}
+.alias-cat button{padding:7px 15px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;
+  border:1px solid var(--line2);background:transparent;color:var(--muted);transition:.2s}
+.alias-cat button.on{background:var(--blue);color:#fff;border-color:transparent}
+.alias-seq{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:16px;min-height:34px}
+.alias-chip{padding:5px 11px;border-radius:8px;font-size:12px;font-weight:700;background:var(--surface2);
+  border:1px solid var(--line);color:var(--blue);animation:chipIn .4s var(--ease)}
+@keyframes chipIn{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+
+/* 加密 + 回溯 */
+.lock-box{text-align:center}
+.lock-icon{font-size:58px;transition:.5s var(--ease);display:inline-block}
+.lock-box.locked .lock-icon{transform:scale(1.06);filter:drop-shadow(0 6px 18px rgba(0,113,227,.35))}
+.crypto-flow{display:flex;align-items:center;justify-content:center;gap:10px;margin:22px 0;flex-wrap:wrap}
+.cf-node{padding:10px 16px;border-radius:10px;background:var(--surface2);border:1px solid var(--line);
+  font-size:12.5px;font-weight:700;color:var(--muted);transition:.3s}
+.cf-node.hot{color:var(--blue);border-color:rgba(0,113,227,.4);box-shadow:0 4px 16px -4px rgba(0,113,227,.3)}
+.cf-arrow{color:var(--faint);font-weight:800}
+.pw-input{margin:14px auto 0;max-width:260px;display:flex;gap:8px}
+.pw-input input{flex:1;padding:11px 14px;border-radius:10px;border:1px solid var(--line2);
+  background:var(--surface);color:var(--txt);font-size:13px;outline:none;transition:.25s}
+.pw-input input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,113,227,.14)}
+
+/* 回溯对比滑块 */
+.restore-wrap{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);
+  user-select:none;touch-action:none}
+.restore-layer{padding:22px;font-size:13px;line-height:2.1}
+.rl-after{background:linear-gradient(160deg,#eef4fd,#e3edfb);color:var(--txt)}
+.rl-before{position:absolute;inset:0;background:linear-gradient(160deg,#f3eefb,#ebe2f7);color:var(--txt);
+  clip-path:inset(0 calc(100% - var(--pos,50%)) 0 0)}
+.restore-handle{position:absolute;top:0;bottom:0;width:3px;background:var(--blue);left:var(--pos,50%);
+  cursor:ew-resize;box-shadow:0 0 14px rgba(0,113,227,.4)}
+.restore-handle::after{content:"⇄";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:34px;height:34px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;
+  font-size:15px;font-weight:900;box-shadow:var(--shadow-lg)}
+.rl-tag{position:absolute;top:10px;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:99px;letter-spacing:1px}
+.rl-tag.l{left:12px;background:rgba(137,68,171,.14);color:var(--violet)}
+.rl-tag.r{right:12px;background:rgba(0,113,227,.13);color:var(--blue)}
+.rl-ent{border-radius:4px;padding:1px 4px;font-weight:700}
+.rl-ent.b{background:rgba(137,68,171,.16);color:var(--violet)}
+.rl-ent.a{background:rgba(0,113,227,.14);color:var(--blue)}
+
+/* ============ 使用场景 ============ */
+.scenes{display:grid;grid-template-columns:repeat(2,1fr);gap:22px;margin-top:56px}
+.scene{display:flex;gap:20px;padding:28px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-lg);transition:.35s var(--ease)}
+.scene:hover{transform:translateX(6px);border-color:rgba(137,68,171,.3);box-shadow:var(--shadow)}
+.scene .snum{font-size:26px;font-weight:900;background:var(--grad);-webkit-background-clip:text;
+  background-clip:text;color:transparent;line-height:1;flex-shrink:0;width:44px}
+.scene h4{font-size:17px;margin-bottom:8px}
+.scene p{color:var(--muted);font-size:13.5px}
+
+/* ============ 目标用户 ============ */
+.users{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:56px}
+.ucard{padding:30px 24px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  text-align:center;transition:.35s var(--ease)}
+.ucard:hover{transform:translateY(-8px);border-color:rgba(0,113,227,.3);box-shadow:var(--shadow-lg)}
+.ucard .uico{font-size:38px;margin-bottom:16px;display:block}
+.ucard h4{font-size:16.5px;margin-bottom:9px}
+.ucard p{color:var(--muted);font-size:12.5px}
+
+/* ============ 数据 ============ */
+.stats-band{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;text-align:center}
+.stat-big .n{font-size:clamp(34px,4.4vw,52px);font-weight:900;background:var(--grad);
+  -webkit-background-clip:text;background-clip:text;color:transparent;line-height:1}
+.stat-big .n small{font-size:.55em}
+.stat-big .t{color:var(--muted);font-size:13.5px;margin-top:12px}
+
+/* ============ 技术栈 ============ */
+.stack{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:44px}
+.stack span{padding:10px 20px;border-radius:99px;background:var(--surface);border:1px solid var(--line2);
+  font-size:13.5px;font-weight:700;color:var(--muted);transition:.25s}
+.stack span:hover{color:var(--blue);border-color:rgba(0,113,227,.4);transform:translateY(-3px)}
+
+/* ============ 下载渠道 ============ */
+#download{background:linear-gradient(180deg,var(--bg2),var(--bg));overflow:hidden}
+.dl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:60px}
+.dl-card{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:38px 28px 30px;transition:.35s var(--ease)}
+.dl-card:hover{transform:translateY(-8px);box-shadow:var(--shadow-lg);border-color:rgba(0,113,227,.28)}
+.dl-ico{width:64px;height:64px;border-radius:18px;display:grid;place-items:center;margin-bottom:20px;
+  font-size:26px;font-weight:900;box-shadow:var(--shadow)}
+.dl-ico.gh{background:#1d1d1f;color:#fff}
+.dl-ico.qk{background:linear-gradient(135deg,#1faeff,#0066ff);color:#fff}
+.dl-ico.bd{background:linear-gradient(135deg,#06a7ff,#2932e1);color:#fff}
+.dl-name{font-size:19px;font-weight:800;margin-bottom:8px}
+.dl-desc{color:var(--muted);font-size:13.5px;line-height:1.6;margin-bottom:24px;min-height:42px}
+.dl-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 24px;border-radius:980px;
+  font-size:14px;font-weight:700;transition:.28s var(--ease)}
+.dl-btn.primary{background:var(--blue);color:#fff;box-shadow:0 4px 14px rgba(0,113,227,.22)}
+.dl-card:hover .dl-btn.primary{background:var(--blue-d)}
+.dl-btn.disabled{background:rgba(0,0,0,.06);color:var(--faint);cursor:not-allowed;box-shadow:none}
+.dl-card.soon{opacity:.75;border-style:dashed;border-color:var(--line2)}
+.dl-card.soon:hover{transform:none;box-shadow:var(--shadow);border-color:var(--line2)}
+.soon-badge{position:absolute;top:16px;right:16px;font-size:11px;font-weight:800;letter-spacing:1px;
+  padding:4px 11px;border-radius:99px;background:rgba(0,0,0,.06);color:var(--faint);border:1px solid var(--line2)}
+.dl-foot{margin-top:30px;text-align:center;color:var(--faint);font-size:12.5px}
+.dl-foot a{color:var(--blue);font-weight:600}
+.dl-foot a:hover{text-decoration:underline}
+
+/* ============ Footer ============ */
+footer{border-top:1px solid var(--line);padding:44px 0 34px;background:var(--bg2)}
+.foot-inner{display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap}
+.foot-col h5{font-size:13px;letter-spacing:1px;color:var(--txt);margin-bottom:14px;text-transform:uppercase}
+.foot-col a,.foot-col p{display:block;color:var(--faint);font-size:13px;margin-bottom:9px;transition:.2s}
+.foot-col a:hover{color:var(--blue)}
+.foot-bottom{margin-top:36px;padding-top:22px;border-top:1px solid var(--line);
+  display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--faint);font-size:12px}
+.license-note{background:rgba(201,52,0,.05);border:1px solid rgba(201,52,0,.18);border-radius:10px;
+  padding:13px 18px;font-size:12px;color:var(--muted);margin-top:16px;line-height:1.7}
+.license-note b{color:var(--amber)}
+
+/* ============ 响应式 ============ */
+@media (max-width:980px){
+  .hero-inner{grid-template-columns:1fr;gap:44px}
+  .hero-demo{transform:none}
+  .values,.users{grid-template-columns:repeat(2,1fr)}
+  .stats-band{grid-template-columns:repeat(2,1fr)}
+  .demo-body{grid-template-columns:1fr}
+  .demo-doc{border-right:none;border-bottom:1px solid var(--line)}
+  .feat{grid-template-columns:1fr;gap:36px;margin-bottom:90px}
+  .feat.rev .feat-copy{order:0}
+  .scenes{grid-template-columns:1fr}
+  .dl-grid{grid-template-columns:1fr;max-width:520px;margin-left:auto;margin-right:auto}
+  .float-tag{display:none}
+}
+@media (max-width:640px){
+  section{padding:64px 0}
+  .nav-links{position:fixed;top:66px;right:0;left:0;background:rgba(251,251,253,.97);
+    flex-direction:column;padding:20px;gap:18px;transform:translateY(-130%);transition:.35s var(--ease);
+    border-bottom:1px solid var(--line)}
+  .nav-links.open{transform:translateY(0)}
+  .hamburger{display:block}
+  .nav-cta{display:none}
+  .values,.users{grid-template-columns:1fr}
+  .hero-stats{gap:22px}
+  .demo-doc{padding:20px;font-size:14px}
+  .foot-inner{flex-direction:column;gap:22px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body data-page-node-id="phe5CPHfSSGdWZ7233dUzo">
+
+<!-- ============ 导航 ============ -->
+<nav id="nav" data-page-node-id="qL2WmIXkS61f9aWRtlR3Xi">
+  <div class="container nav-inner" data-page-node-id="myq5E9Dh6zYm7FHzHpCkGU">
+    <a href="#hero" class="logo" data-page-node-id="1ZdzZ5o8wz4rro9br6TXcV"><span class="logo-mark" data-page-node-id="778Oq4CvyJZrkZh6b6kfjP">基</span>基石</a>
+    <div class="nav-links" id="navLinks" data-page-node-id="Gg85oFHG3tgf0oKNUrcjN5">
+      <a href="#value" data-spy="value" data-page-node-id="B6vhYfD2NiIygHTSgp3V5J">核心价值</a>
+      <a href="#demo" data-spy="demo" data-page-node-id="oidEHE6DIh8f1ZaUpW84Jp">在线演示</a>
+      <a href="#features" data-spy="features" data-page-node-id="udKZ1MdhII1KXKtQSvJNCo">功能模块</a>
+      <a href="#scenes" data-spy="scenes" data-page-node-id="FsaUWADJIqyVAnsDBmhWtI">使用场景</a>
+      <a href="#users" data-spy="users" data-page-node-id="VCa1agt61b4KUlC1qCrqgI">目标用户</a>
+      <a href="#download" data-spy="download" data-page-node-id="ZYT202Yii2skvTbDf29wIk">下载</a>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center" data-page-node-id="OAkZwIav3qCtYH79Ni2Fgb">
+      <a class="btn btn-ghost btn-sm nav-cta" href="https://github.com/hanbills52/jishi" target="_blank" rel="noopener" data-page-node-id="57uXcO7nyrzdviY263hQEL">GitHub</a>
+      <a class="btn btn-primary btn-sm nav-cta" href="#download" data-page-node-id="L9a3Nj6AO2PVs0U2t5d5cT">下载 v1.0</a>
+      <button class="hamburger" id="hamBtn" aria-label="菜单" data-page-node-id="sVfsxmoin9vVNDI30WRMqX">☰</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ Hero ============ -->
+<section id="hero" data-page-node-id="He1Dji6dAFjtcALyt7nCXf">
+  <div class="hero-glow hg1" data-page-node-id="aB5dP2ihbP0mVSfb4c82Ck"></div><div class="hero-glow hg2" data-page-node-id="bGEoOSrn1rDVjgvoBQFIVS"></div>
+  <div class="hero-grid-lines" data-page-node-id="ViILD4yfY1gbWaQCwKNBZk"></div>
+  <div class="container hero-inner" data-page-node-id="3nQWT4Tl8hsGxCPZVNBT6R">
+    <div data-page-node-id="5vD7usprJPaI4ZegUdWeq8">
+      <div class="hero-badge reveal" data-page-node-id="ZDEuIBN87jIc8nIgq8yQyl"><span class="dot" data-page-node-id="1z0G3WFqqUJE59RJxaf546"></span>纯本地离线 · 开源免费 · Windows</div>
+      <h1 class="hero-title reveal d1" data-page-node-id="LK23UImjCuqsQhycNpftIA">让敏感信息<br data-page-node-id="EjAFrAZyGlDCvDjMTEVwNE"><span class="grad-text" data-page-node-id="Hq8DsZzKe7vYUtOLhlUVoX">止步于本机</span></h1>
+      <p class="hero-sub reveal d2" data-page-node-id="5DOaTxrEEakA8jlrM5ERfj">基石是一款本地化批量文档脱敏工具。规则 + 词典 + NER 三层识别引擎，自动找出文书里的人名、证件号、机构与地址，用统一代称替换——文档不上传，隐私不出机，喂给 AI 之前先把门关好。</p>
+      <div class="hero-cta reveal d3" data-page-node-id="nltaf7HZb1hnuPLWXm8rg2">
+        <a class="btn btn-primary" href="#download" data-page-node-id="eYhBFNd5RQbtyciLnKWydA">⬇ 下载 Windows 版</a>
+        <a class="btn btn-ghost" href="#demo" data-page-node-id="q1ndhPo7dfcY61sd4DnEgc">▶ 在线体验脱敏</a>
+      </div>
+      <div class="hero-stats reveal d4" data-page-node-id="rEeX3Nj5o2ULRQDcYJmrBt">
+        <div class="hstat" data-page-node-id="B5nB5snKcZgPwsFNoFi2Am"><div class="num" data-count="0" data-suffix="" data-page-node-id="OEajp5d2cUMIiieX2FXUfn">0</div><div class="lbl" data-page-node-id="gmKfEUocC5Pvhn4AdTMG0n">网络请求</div></div>
+        <div class="hstat" data-page-node-id="fsmWo9UKeUK1Qz7MBOMDyl"><div class="num" data-count="99" data-suffix="%" data-page-node-id="ChVy0GqFVPCngGn5T7Ev6n">0</div><div class="lbl" data-page-node-id="hh1NNmuwWEMeBU7OlR4szD">号码类召回 ≥</div></div>
+        <div class="hstat" data-page-node-id="aL45Lbpdn8dCnBcjVu3DBz"><div class="num" data-count="95" data-suffix="%" data-page-node-id="7bz3eQ4IvXF3UeVF6yj1Xn">0</div><div class="lbl" data-page-node-id="H4l5QzGkMUluCeWsYkSlPv">人名召回 ≥</div></div>
+        <div class="hstat" data-page-node-id="4C0OCGORGZOtqNBBrvO9Fm"><div class="num" data-count="3" data-suffix=" 层" data-page-node-id="QSykeMtygHDgosb9Sr16k9">0</div><div class="lbl" data-page-node-id="wmrXLHtwPxoHeOTsKHE74q">识别引擎</div></div>
+      </div>
+    </div>
+    <div style="position:relative" class="reveal d2" data-page-node-id="1sEwyUcbr3mdc8t6Zn9s9P">
+      <div class="float-tag ft1" data-page-node-id="EWZRXJVTKR0Er72Q3Nk4EG">🔒 AES-256-GCM</div>
+      <div class="float-tag ft2" data-page-node-id="C4mfe68kSkypYAuIbP0il7">⚡ 离线运行</div>
+      <div class="float-tag ft3" data-page-node-id="8vzQV6tFlsYfXeYQNEVkRZ">🧠 NER 识别</div>
+      <div class="hero-demo" id="heroDemo" data-page-node-id="UcHX8n2UiFOrZV8dkuDXzV">
+        <div class="win-bar" data-page-node-id="T1JrCrIWCiiXqjhIF80rBz"><span class="win-dot r" data-page-node-id="F14D4EejnBgClKA6YrUjR4"></span><span class="win-dot y" data-page-node-id="sltj7lbIuiDQJms8exLE1H"></span><span class="win-dot g" data-page-node-id="x6xditKlr6pD8bP7SiQRmC"></span><span class="win-title" data-page-node-id="J1Cj3NIMFD14evI4MzupIP">基石 · 买卖合同纠纷.docx — 扫描中</span></div>
+        <div class="hero-scanline" data-page-node-id="AW7N0Hc9ZaHRmLKceOONIR"></div>
+        <div class="hero-doc" id="heroDoc" data-page-node-id="63dGu972LVzJqG5jPLeh4j"></div>
+        <div class="hero-demo-foot" data-page-node-id="KW0AkdYyIRsM3TnaGVFAZU"><span data-page-node-id="UQ6VISbuEcmTZyy3OWd6Dm">已识别 <b style="color:var(--green)" data-page-node-id="Q60V9fEsrhB470DhN5Rkjm">7</b> 处敏感信息</span><span data-page-node-id="d27bKa10xLySZ7KWzPsrRG">置信度 ≥0.90 自动生效</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 信任条 ============ -->
+<div class="trustbar" data-page-node-id="COZZZ5U9Mz3XAJhMZLYQlu">
+  <div class="container trust-inner" data-page-node-id="Zc2Zuo0AFnc0ICWyxSqXXj">
+    <div class="trust-item" data-page-node-id="wGggdAQulIcZF0UaKbr9qI"><span class="ico" data-page-node-id="Jn0VvA4sBsFCyYEb4jMTWp">📴</span>运行零网络请求</div>
+    <div class="trust-item" data-page-node-id="avBSILTw7eWG6WEGBcE3sF"><span class="ico" data-page-node-id="VINRjX2DDHJZwmKR196Flh">📄</span>docx / PDF / 扫描件</div>
+    <div class="trust-item" data-page-node-id="GvBH5kYEZufHrQHKIyKxRM"><span class="ico" data-page-node-id="AERtsElDVct38NPL1HtJot">🔐</span>AES-256-GCM 加密映射</div>
+    <div class="trust-item" data-page-node-id="h0S748CLrpzlaRFAYR3ZtT"><span class="ico" data-page-node-id="6pXFjbW61McIssXgMoj7Yg">↩️</span>AI 处理后可回溯还原</div>
+    <div class="trust-item" data-page-node-id="2C8ckvSMrIJYkVRJv1Gz90"><span class="ico" data-page-node-id="Yn5A4uxrs3SWBxiMVhIddJ">👁️</span>人工确认兜底</div>
+    <div class="trust-item" data-page-node-id="LHFMH0M6Fo5yXtAU0Hbbzd"><span class="ico" data-page-node-id="KXouwX3BCJgOM35rIz6DNA">🧩</span>MIT 开源</div>
+  </div>
+</div>
+
+<!-- ============ 核心价值 ============ -->
+<section id="value" data-page-node-id="i5UFCdMLFv7IcQW9U8zd5X">
+  <div class="container" data-page-node-id="ouDZi5RMqhSiAwpETccAc8">
+    <div class="center" data-page-node-id="hM72mqskTo94ciZYZwB1Ob">
+      <div class="kicker reveal" data-page-node-id="4FrRcCjz0wcRa2HFE2bukD">核心价值</div>
+      <h2 class="sec-title reveal" data-page-node-id="Ck8rvES1XQzhrfNnfE81Px">为什么需要<span class="grad-text" data-page-node-id="xOG7x6R98fLpq2T16VJa7p">基石</span></h2>
+      <p class="sec-sub reveal" data-page-node-id="tv2x1D9KJAVgmZFOJAhpDW">把合同、判决书、证据材料发给云端 AI 前，敏感信息去了哪、谁能看、如何还原——基石把这三件事一次解决。</p>
+    </div>
+    <div class="values" data-page-node-id="QLYNG0acFg86UwUkr9dBlt">
+      <div class="vcard reveal" data-page-node-id="YKh2oQpBmSjncvlnNCh0pC">
+        <div class="vico" data-page-node-id="eY5pGQysL98nO3VWW8Qejl">📴</div>
+        <h3 data-page-node-id="bDXy9eLl61Fatjmbzm86M5">纯本地离线</h3>
+        <p data-page-node-id="dHGJrbKOvlfLpVjC3hO9Xx">从识别到替换全程在本机完成，不发起任何网络请求。模型与词典随安装包分发，防火墙全阻断环境下功能完整。</p>
+      </div>
+      <div class="vcard reveal d1" data-page-node-id="0MbADkR0oEb1xFA3bYhmX7">
+        <div class="vico" data-page-node-id="LGXIe1iazZbLXDHfaCFECp">🎯</div>
+        <h3 data-page-node-id="HHN6pVOGjS8foCRAcYZPYx">三层识别引擎</h3>
+        <p data-page-node-id="FCTb3JBNr90rZ4rOV6S4dL">规则（正则+校验位）兜底精度，词典覆盖上下文，NER 模型补齐长尾。仲裁器按层优先级与置信度分桶，宁可漏标不可错标。</p>
+      </div>
+      <div class="vcard reveal d2" data-page-node-id="ZIIYhjGsx2QPXtIJUiuK1m">
+        <div class="vico" data-page-node-id="NWTEKOGL2swheEeGnSEMFH">👁️</div>
+        <h3 data-page-node-id="Y41DO5AOGFzFvuy4xxLPhO">人工可控</h3>
+        <p data-page-node-id="KP9CwP2txqly6DzamvVrNI">所有识别结果进映射面板，支持启停、删除、自定义、同名拆分。低置信度默认进"待确认"不生效，导出前弹确认。</p>
+      </div>
+      <div class="vcard reveal d3" data-page-node-id="Q15A5UazHooP8l5HwiUvOt">
+        <div class="vico" data-page-node-id="AIyqdc3fEiiXdK1DFkqZVP">↩️</div>
+        <h3 data-page-node-id="VdyK0Q4Jds3j0l1abePOM1">可回溯还原</h3>
+        <p data-page-node-id="4ViBVorudi7hqBPWP9Yahf">脱敏映射经 AES-256-GCM + scrypt 加密导出。AI 改完文档后，凭映射+密码一键还原，并自动生成"未还原项"报告。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 交互演示器 ============ -->
+<section id="demo" data-page-node-id="gXoeRMhifFO5SkV5Xz5KB9">
+  <div class="container" data-page-node-id="KVpOx6b9VZsKzDqKDS7ACv">
+    <div class="center" data-page-node-id="UkHBzoIMAF2MMv7Xgalki4">
+      <div class="kicker reveal" data-page-node-id="c2xNxptFeD2508JAMIbF8v">在线演示</div>
+      <h2 class="sec-title reveal" data-page-node-id="bQ5WsgeP8bj5ga16pZVTvE">亲手<span class="grad-text" data-page-node-id="2Bv4mFI5qGXuvO4s9J19Fa">脱敏</span>一份判决书</h2>
+      <p class="sec-sub reveal" data-page-node-id="avl9kgOysAiZ5zWETgYIGt">下面是一段模拟法律文书。点"扫描识别"，看三层引擎如何标记；再"采纳待确认"并"执行脱敏"，看代称如何替换——这正是基石的真实工作流。</p>
+    </div>
+    <div class="demo-shell reveal" data-page-node-id="Bs1eI4jqLZdR4wCVr7mIi9">
+      <div class="demo-toolbar" data-page-node-id="CWaPAjSZgaWH0OiUxgig3v">
+        <span class="win-dot r" data-page-node-id="TPKlFxfApithAGnSGyHX2x"></span><span class="win-dot y" data-page-node-id="hdENxRNut0yf88jrnPk3JF"></span><span class="win-dot g" data-page-node-id="y2aU1laB9sQc0WBAzwBml5"></span>
+        <span style="font-size:12px;color:var(--faint);margin-left:6px" class="mono" data-page-node-id="ptNwmfAK0xbIXX6sxWSFLo">买卖合同纠纷_判决书.docx</span>
+        <div class="spacer" data-page-node-id="hG14GLbpR77lFqBuCNbtbt"></div>
+        <div class="view-toggle" data-page-node-id="xAAQnah3qABOYHocqVSGEd">
+          <button id="viewOrig" class="on" data-page-node-id="4X77AEON9PmRG8CkWbhUeJ">原文</button>
+          <button id="viewMask" data-page-node-id="zU5UfDKV3MRMhssFI8oZCD">脱敏文</button>
+        </div>
+        <button class="step-btn step1" id="btnScan" data-page-node-id="fscLvXSHscE0vc097RHGVk">① 扫描识别</button>
+        <button class="step-btn step2" id="btnMask" disabled data-page-node-id="Wpir7ddN4sqDsFBJX4aHHG">② 执行脱敏</button>
+        <button class="step-btn" id="btnReset" style="background:rgba(0,0,0,.05);color:var(--muted);border:1px solid var(--line2)" data-page-node-id="eoZjlSVcoVx3ktSYtGy7Ca">↺ 重置</button>
+      </div>
+      <div class="demo-body" data-page-node-id="XDFxzDxjE1EREf9GvriAdW">
+        <div class="demo-doc" id="demoDoc" data-page-node-id="TcqvVn7QKJxydVqnFKUp7M"></div>
+        <div class="demo-panel" data-page-node-id="OO5yTuLgCS95lWompewWgf">
+          <div class="panel-title" data-page-node-id="3jK9arLZZQRC1GlcNvnjdD">映射面板 <span class="adopt-all" id="adoptAll" style="display:none" data-page-node-id="D6B6GlnVkGyp1CWcCM7eBG">一键采纳待确认</span></div>
+          <div id="panelContent" data-page-node-id="9m6QSVNf75aD8ga8BajK3i"><div class="empty-hint" data-page-node-id="BfngAzFnAEdo01bv6t03zE">点击左上角「① 扫描识别」<br data-page-node-id="1GzgdRMiYQiDruKDS2OMqy">三层引擎将自动标记敏感信息<br data-page-node-id="4kr0xJKXvfrAFEwX0qOyNG"><br data-page-node-id="1Z9RPByjiN5yWgp3SlEBuk"><span style="font-size:24px" data-page-node-id="zrJBMN2aZAvCw2tmZuDlIA">🔍</span></div></div>
+        </div>
+      </div>
+      <div class="demo-log" id="demoLog" data-page-node-id="3tHexgCbPyG0iXeT542QPd">
+        <span data-page-node-id="mbOEdmEj4s5rSZDkESBnBh">⏳ 待扫描</span><span data-page-node-id="OurVN3UASCDP5esr3QfpBE">规则层 <b class="ok" data-page-node-id="iL6Bko89nANukDXFWa4v4V">0</b></span><span data-page-node-id="KCprTLHpAxPfcsDwl2lwHB">词典层 <b class="ok" data-page-node-id="oCenyYesiChYUmKmKl6LsI">0</b></span><span data-page-node-id="rrRGG2uWsvgUeBfktyMzv5">NER 层 <b class="ok" data-page-node-id="ChuSWJy66BGzazf4gUBfOL">0</b></span><span data-page-node-id="CyNFxAUDUo90v3EvG5Z1LR">待确认 <b style="color:var(--amber)" data-page-node-id="7pNf4124y9MAZDrLD4E3Gc">0</b></span>
+      </div>
+    </div>
+    <p class="center reveal" style="margin-top:20px;color:var(--faint);font-size:12.5px" data-page-node-id="b8IK6hP7ushHncywMEFOkW">💡 提示：把鼠标悬停在文档里高亮的词条上，可查看类别 / 置信度 / 识别来源；右侧开关可即时启停某项映射。</p>
+  </div>
+</section>
+
+<!-- ============ 功能模块 ============ -->
+<section id="features" data-page-node-id="QrLiZ4J1VkyflOzKuiZD3Z">
+  <div class="container" data-page-node-id="VWYAQAjpMHbF7gW4NCeXzS">
+    <div class="center" style="margin-bottom:80px" data-page-node-id="ovvtQBdfubOrlwNqkBINCJ">
+      <div class="kicker reveal" data-page-node-id="18NBEXMJ4IKse2C4CyCFO6">功能模块</div>
+      <h2 class="sec-title reveal" data-page-node-id="IVi3bDJoRTF42FqkOxWyGD">四个模块，一条<span class="grad-text" data-page-node-id="QntNUYshhBN3nEJG0z7ZDx">安全流水线</span></h2>
+      <p class="sec-sub reveal" data-page-node-id="mTDanDNMjfBEVa6fVCPQ1d">从识别到替换，从加密到还原——每个环节都为"隐私不出机"而设计。</p>
+    </div>
+
+    <!-- 模块 1：三层识别 -->
+    <div class="feat reveal" id="f1" data-page-node-id="epDJ7BTRWTOGFfcI8e2Koh">
+      <div class="feat-copy" data-page-node-id="tfHoTg5m7IMHVS1qqdewr6">
+        <div class="feat-num" data-page-node-id="lABt1ZbFKbKGgQxdvTlk8Q">MODULE 01</div>
+        <h3 data-page-node-id="C2OEs5TNiC14UkGptgXZ3S">三层识别引擎 + 仲裁器</h3>
+        <p data-page-node-id="SyGNsJry8cnHniZ1ME0HP5">同一段文字，三种视角交叉验证。规则层负责"确定的"，词典层负责"有上下文的"，NER 层负责"没见过的"，仲裁器把它们对齐成不冲突的结论。</p>
+        <ul class="feat-list" data-page-node-id="ZO24HELL3iWzxD4wTMZ9uE">
+          <li data-page-node-id="bQBg6qlvbvHc87k3lJCr8f">规则层：身份证 GB11643 校验位、银行卡 Luhn、统一社会信用代码——校验不过直接丢弃，从源头防误报</li>
+          <li data-page-node-id="pR4L0hEUXcRnYWdSqj3b1l">词典层：姓氏 / 民族 / 提示词 / 司法停用词，"原告 X 某"这类上下文模式精准命中</li>
+          <li data-page-node-id="sbOn2mBCTf4u1HaFSXxDQ9">NER 层：RoBERTa-cluener2020 转 ONNX，识别长尾人名 / 机构 / 地址，默认进待确认</li>
+          <li data-page-node-id="zsMxPWMBUBDE6W2ZVU0A6u">仲裁器：层优先级取舍 + 相邻实体碎片合并，避免"莲花街|道|办事处"被切成三段</li>
+        </ul>
+      </div>
+      <div class="feat-visual" data-page-node-id="b1k4hjf5OnYM0HsYg9zw7F">
+        <div class="pipeline" id="pipeline" data-page-node-id="zB66T6Xl0EkUzPLFG1yM7j">
+          <div class="pstage ps1" data-stage="0" data-page-node-id="bPpl6p6RqUTAh1SrtVEVnf"><div class="pico" data-page-node-id="vfomC6tf7SAyy5upEhTn4h">⚙️</div><div class="ptxt" data-page-node-id="wgSpz71OLR25LLdnE22IYE"><b data-page-node-id="gT3BvAScOY3nscp2RVGGXb">规则层</b><span data-page-node-id="5ZUKOoFfOz9BSnOk3a3Ak1">正则 + 校验位验证</span></div><span class="pconf" data-page-node-id="KUPLxMkp35DqDrjrBvIUwj">置信 0.99 · auto</span></div>
+          <div class="p-arrow" data-page-node-id="9Q4HEg1QFHIlh8p1yKl15v">↓</div>
+          <div class="pstage ps2" data-stage="1" data-page-node-id="AFDvajNshAtzLYogeEBZ5L"><div class="pico" data-page-node-id="7ext9ZkGOxTIhNuqx7DA1f">📚</div><div class="ptxt" data-page-node-id="rLMCxs1rRxXGK0HTR4PekV"><b data-page-node-id="ifJUI668GosoZR2I8xM1uq">词典层</b><span data-page-node-id="tFPapVfINr5wI9agYd5sLE">上下文模式 + 停用词过滤</span></div><span class="pconf" data-page-node-id="R0VNlCGmSGxAMYEDQffms1">置信 0.7~0.85 · 待确认</span></div>
+          <div class="p-arrow" data-page-node-id="hAcSL9wVjRs9VaHo0NxEaC">↓</div>
+          <div class="pstage ps3" data-stage="2" data-page-node-id="ry2fywaHN1u4zEbzp9ugqu"><div class="pico" data-page-node-id="xh9jCObqSAfFv40vlKzQmY">🧠</div><div class="ptxt" data-page-node-id="12IFOiUt3vWOOp3LkPZd4Y"><b data-page-node-id="A30VsS7be3qeNvG7bs4Y2M">NER 层</b><span data-page-node-id="OItN0xNLv8pj2e4ZXcXjls">ONNX 实体识别</span></div><span class="pconf" data-page-node-id="AZhIECjgxonSFvaziZxNd4">置信 0.6~0.8 · 待确认</span></div>
+        </div>
+        <div class="conf-meter" data-page-node-id="mRcXpuGGeA1M4Vpfpac4DQ">
+          <div class="cm-lbl" data-page-node-id="HP2ZnHCtORjhsBRQqBZczG"><span data-page-node-id="S4jbMBZHdR5rOFzKST0EGQ">置信度分桶</span><span id="cmVal" data-page-node-id="WSdROtBy5SUrYpNcm00deQ">—</span></div>
+          <div class="cm-track" data-page-node-id="HJbTP1Vh67vi4BhGy4ojIT"><div class="cm-fill" id="cmFill" data-page-node-id="u8Yd8id7NOal3TVIaJXML2"></div><div class="cm-th" style="left:60%" data-page-node-id="hKIiNB0R3SokGl2iBnPMdv"></div><div class="cm-th" style="left:90%" data-page-node-id="NYQLMTp1qANoQEo2gjZA6I"></div></div>
+          <div class="cm-ticks" data-page-node-id="QlUYdjVUhMXpNtxKNvaYWr"><span data-page-node-id="O87njLaxsJHzkmmhAhuihW">0</span><span data-page-node-id="l4g8dGcL8nngG3OlMklZzT">0.60 待确认线</span><span data-page-node-id="CDRQK7AVxpEhrtiI7x4kDt">0.90 自动线</span><span data-page-node-id="ljLhgU8tVRhA2l7Sh6jtzA">1.0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 模块 2：多文档支持 -->
+    <div class="feat rev reveal" id="f2" data-page-node-id="DM65jyKgFjhR5XcoFE4uRl">
+      <div class="feat-copy" data-page-node-id="GEzCalJiVfhny0TKKe0Kf3">
+        <div class="feat-num" data-page-node-id="WoThswOcLHmxcZrzVNF06f">MODULE 02</div>
+        <h3 data-page-node-id="wMt1DS7EBaoFCuGDriEnWn">Word / PDF / 扫描件，格式保真</h3>
+        <p data-page-node-id="ugVexNvEeUNWeFR4CtbwAT">脱敏最怕"字换了、版乱了"。基石按文档结构的最小单元替换，样式、表格、页眉页脚原样保留，导出与原文档排版零差异。</p>
+        <ul class="feat-list" data-page-node-id="wjM1O4AFPYpdoTK6Mmcimh">
+          <li data-page-node-id="bjvCtrC2q4gHI3SDZMZOxr"><b data-page-node-id="1iEYwYuL5DBWR4qAkCw5DR">docx</b>：run 级替换，加粗/字体不动；跨 run 命中（如"张三"被加粗拆开）也能正确合并替换</li>
+          <li data-page-node-id="W2pbhqtEIAV1rQKgcxeNlC"><b data-page-node-id="HSBY8zRc5ICwGfO3Hhqv5F">文字型 PDF</b>：PyMuPDF redaction + 字号自适应，代称太长自动缩字号防溢出</li>
+          <li data-page-node-id="AQsa7INuOPihUBFr8rxAFm"><b data-page-node-id="QrU3EccDZBQjOqYT09P3Nz">扫描件 PDF</b>：RapidOCR 识别（DPI 200 保召回），OCR 结果缓存避免二次识别，多文件并行自适应线程</li>
+          <li data-page-node-id="F9HaSZB16rUJ4Xdg4alGH1">映射按键长降序执行，"张三丰"不会被"张三"吃掉成"甲某丰"</li>
+        </ul>
+      </div>
+      <div class="feat-visual" data-page-node-id="roRQBK7xYkYXGCCqAXryVP">
+        <div class="alias-cat" id="docTabs" style="margin:0 0 20px" data-page-node-id="VZQBVnXCKHdz9aXqQ5Tyfu">
+          <button class="on" data-doc="docx" data-page-node-id="fJxvMWalu5gYvYHznPBDRU">Word .docx</button>
+          <button data-doc="pdf" data-page-node-id="Q0YxwRdLb968ENeNAHSUnA">文字 PDF</button>
+          <button data-doc="scan" data-page-node-id="3KZ59YTPjrjFi9o16CRDC2">扫描件 PDF</button>
+        </div>
+        <div id="docDemo" style="background:var(--surface2);border-radius:12px;padding:22px;font-size:13px;line-height:2.1;color:var(--txt);border:1px solid var(--line)" data-page-node-id="A3Y7f0zGBcS4dxLQhUmduQ"></div>
+        <div id="docNote" style="margin-top:14px;font-size:12px;color:var(--faint);display:flex;gap:8px;align-items:center" data-page-node-id="Dj4KLV4t6iIMZFkfXnUhEh"><span style="color:var(--green)" data-page-node-id="AeWLRw2HfPsaeZkUuBFqYA">✓</span><span data-page-node-id="43UtGZos3ACPQQaU9AEVh3"></span></div>
+      </div>
+    </div>
+
+    <!-- 模块 3：代称 + 加密 -->
+    <div class="feat reveal" id="f3" data-page-node-id="GHVfwWARahD03jIST3lq5c">
+      <div class="feat-copy" data-page-node-id="7KPuco8HAbqCURPgMGu1TK">
+        <div class="feat-num" data-page-node-id="sULiAm3kiGCMFOGL5hIq0N">MODULE 03</div>
+        <h3 data-page-node-id="oPhvAGuO0ecir07E81hwke">天干地支代称 + AES 加密映射</h3>
+        <p data-page-node-id="VfyJz0jIZffEADQ3rCV1da">同一原文在同批次里只对应一个代称，跨文档一致。代称本身不含任何原始信息，映射关系加密落盘，密码不明文存储。</p>
+        <ul class="feat-list" data-page-node-id="QF4qL3yK45gxXAxUvt5n0F">
+          <li data-page-node-id="V7sfeyddin7Zz02M4ALC5p">代称序列：十天干 → 十二地支 → 天干+序号（甲某…癸某→子某…亥某→甲某2…）</li>
+          <li data-page-node-id="W024JF8Yk6eN8NeYeRWH25">类别后缀：人名"某"、公司"公司"、单位"单位"、地址"地址"，一眼看出类别</li>
+          <li data-page-node-id="DEph1LJ6ibnJYRJylXGRr5">映射文件 AES-256-GCM 加密 + scrypt 密钥派生，密文无明文残留</li>
+          <li data-page-node-id="ilRSvHipOH5Zdw3fzlxDlP">密码错误拒绝解密，无找回通道——丢密码等于丢映射</li>
+        </ul>
+      </div>
+      <div class="feat-visual alias-gen" data-page-node-id="G4Ck69xqlV2hwBhfxu0X8K">
+        <div class="panel-title" style="justify-content:center" data-page-node-id="m77DuPDKtaERGVHgKvl7RJ">代称生成器 · 试试点一下</div>
+        <div class="alias-cat" id="aliasCat" data-page-node-id="ozt9yFayWiNOZSarNeLUcY">
+          <button class="on" data-cat="person" data-page-node-id="TQ4vtUB2YoHpHzlh4dxL6x">人名</button>
+          <button data-cat="company" data-page-node-id="JG7C3eXdF5xERkQbCtJQ0A">公司</button>
+          <button data-cat="org" data-page-node-id="BMwhgQDDJVvDPsmBSxzFzO">单位</button>
+          <button data-cat="address" data-page-node-id="oWQD6VaUW0KgqvxcSB9IV5">地址</button>
+        </div>
+        <div class="alias-display" id="aliasDisplay" data-page-node-id="d3Tt0cTeqzjBCEEwdwxECY">甲某</div>
+        <button class="btn btn-ghost btn-sm" id="aliasNext" style="margin:14px auto 0;display:inline-flex" data-page-node-id="bk48Heb0JTEu6zoAaXGtkc">生成下一个 →</button>
+        <div class="alias-seq" id="aliasSeq" data-page-node-id="in6IgixThqol9bMUMfCd1A"></div>
+      </div>
+    </div>
+
+    <!-- 模块 4：回溯还原 -->
+    <div class="feat rev reveal" id="f4" data-page-node-id="NEJ4PSRne0dE0FKkNnPF57">
+      <div class="feat-copy" data-page-node-id="8ZmkVr9GXvQQKtLbOWilw7">
+        <div class="feat-num" data-page-node-id="9L4OOHVCoQhoezDKIeR9Xw">MODULE 04</div>
+        <h3 data-page-node-id="V13AK9z8esVDGGhPLT1gOe">回溯还原 + 未还原项报告</h3>
+        <p data-page-node-id="emES0qWd29BRKPR6klgPEA">脱敏文档喂给 AI 改完之后，还能安全地变回来。拖动下面的滑块，直观对比"AI 处理后的脱敏文"与"还原后的原文"。</p>
+        <ul class="feat-list" data-page-node-id="SDdyloV2bObngADtqAhtCu">
+          <li data-page-node-id="jzoS3Xcptte3zVNr3NShsO">凭"AI 处理后文档 + 加密映射 + 密码"三要素还原</li>
+          <li data-page-node-id="g8cV088FHvfwRIxJMphmEI">按代称长度降序逆替换，docx / txt / md 均支持</li>
+          <li data-page-node-id="2GPyi4QJXj9HsX1POveGOh">AI 改写、删除的代称自动进"未还原项"报告，随还原文件导出</li>
+          <li data-page-node-id="F4JilTkfLgTi3Qd9cnGdAs">文档名不在清单只警告不拒绝（AI 产物的哈希本就不同，属预期）</li>
+        </ul>
+      </div>
+      <div class="feat-visual lock-box" id="lockBox" data-page-node-id="YxrNmGGYrnYKaMo5WJr76B">
+        <div class="crypto-flow" data-page-node-id="UbJJU9Lxi0Af5fQKJncfFW">
+          <span class="cf-node" data-cf="0" data-page-node-id="vtGp6lofvIrJRTBsGiWje2">📄 处理后文档</span><span class="cf-arrow" data-page-node-id="v16L18oogez4K1Z79hLuti">+</span>
+          <span class="cf-node" data-cf="1" data-page-node-id="HpyPPaHpjIRdLAOWiYGjPF">🔑 映射.json</span><span class="cf-arrow" data-page-node-id="xN5fjvBWVUdIfbZ7b3dHNg">+</span>
+          <span class="cf-node" data-cf="2" data-page-node-id="X8QONX8ackyoVL4sgrTlip">🗝 密码</span>
+        </div>
+        <span class="lock-icon" id="lockIcon" data-page-node-id="0Rc0ZvdKrEbpgmq8iRkmbv">🔓</span>
+        <div class="pw-input" data-page-node-id="U4Qb0ED4Uxb9hJav1jduJs">
+          <input type="password" id="pwInput" placeholder="输入任意密码，点解锁试试" data-page-node-id="OGVKYEIySTwLTvxrWzdvFO">
+          <button class="btn btn-primary btn-sm" id="pwBtn" data-page-node-id="ngRIiiGGgPKRKuuhiGrOO1">解锁还原</button>
+        </div>
+        <div class="restore-wrap" id="restoreWrap" style="margin-top:22px;opacity:.4;pointer-events:none;transition:.4s" data-page-node-id="bB0aSUrK70SAPnl4XTsvTH">
+          <span class="rl-tag l" data-page-node-id="BE8wZHMlown098MrR8dAQg">AI 处理后的脱敏文</span><span class="rl-tag r" data-page-node-id="B7jgB8M2KhshIWayOy1TYg">还原后的原文</span>
+          <div class="restore-layer rl-after" data-page-node-id="TlTaINSAcKit7rAH5TRAm5">经审理查明，<span class="rl-ent b" data-page-node-id="2tkR6H40xrsMQ4npclRLO1">张三</span>与<span class="rl-ent b" data-page-node-id="e72JFMW7LwFW9wGoCWoPYq">北京恒信科技有限公司</span>签订买卖合同，约定货款 125 万元。原告 <span class="rl-ent b" data-page-node-id="BYbIdCoSbC18RRXLvu8f8H">张三</span> 住所地位于<span class="rl-ent b" data-page-node-id="S2uiigkoA33yegUmBsqj1C">北京市海淀区中关村大街27号</span>……</div>
+          <div class="restore-layer rl-before" id="rlBefore" data-page-node-id="5Eq8XX7twoyZStBDiECdZz">经审理查明，<span class="rl-ent a" data-page-node-id="O9wB0jPIg4HU3voPqd5J8I">甲某</span>与<span class="rl-ent a" data-page-node-id="r2jWZJN26ZNmuLrwMVrRMN">甲公司</span>签订买卖合同，约定货款 125 万元。原告 <span class="rl-ent a" data-page-node-id="3X46eERBt2H490Vx380hmh">甲某</span> 住所地位于<span class="rl-ent a" data-page-node-id="npIlHB0BQzCx2GKVeZFBU0">甲地址</span>……</div>
+          <div class="restore-handle" id="restoreHandle" data-page-node-id="ezT5uWCFIpEk0NWhqOhrp8"></div>
+        </div>
+        <div style="margin-top:12px;font-size:11.5px;color:var(--faint)" id="restoreHint" data-page-node-id="kSnq4GtGlUYMjn1l4WITMr">🔒 先在上方"解锁"，再拖动滑块对比还原效果</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 使用场景 ============ -->
+<section id="scenes" data-page-node-id="F2O3oGjtNgixvDgAF3Fhwa">
+  <div class="container" data-page-node-id="g27AVaeo8XwKXELRl22AbG">
+    <div class="center" data-page-node-id="KDNkBj7eh8KAy4Ukjp1XcO">
+      <div class="kicker reveal" data-page-node-id="OvVudMS6cvNxSRRMilbkmF">使用场景</div>
+      <h2 class="sec-title reveal" data-page-node-id="dsMwyNSCmtxOK8IpjH7DjE">什么时候，你需要<span class="grad-text" data-page-node-id="6fL355cbttGVvysqVE58Do">基石</span></h2>
+    </div>
+    <div class="scenes" data-page-node-id="vtMdzNErxTmH4pAaaCNhKJ">
+      <div class="scene reveal" data-page-node-id="5Ba7bN9IIiheDdq4ZKBuZL"><div class="snum" data-page-node-id="NiRf1FfIhfDFRRXzLJW6rI">01</div><div data-page-node-id="5Lg3w5pnukWfMk6flktvqG"><h4 data-page-node-id="2qBlGkiNf9LYPrxdOTqLy4">📤 把案件材料发给云端 AI 前</h4><p data-page-node-id="UIE0G9xz3Yck95Mo43qJaY">想用大模型分析合同、起草文书、梳理证据，又怕当事人隐私泄露？先用基石脱敏，AI 只接触代号，分析完再还原。</p></div></div>
+      <div class="scene reveal d1" data-page-node-id="bbwxbGQxSRRVhbsbkps6Vs"><div class="snum" data-page-node-id="3Gs6cmtUVJV2IJ7qUVCXpT">02</div><div data-page-node-id="JFnGYbCewAUrhwIvXu0apU"><h4 data-page-node-id="ep5yBX6UbRLIsB7BHBKWMf">🤝 对外提供证据 / 案卷副本</h4><p data-page-node-id="ZjojTECvx0kliXbhEpYGFv">向对方当事人、调解机构、第三方提供材料时，隐去无关个人的身份证号、联系方式、住址，满足最小必要原则。</p></div></div>
+      <div class="scene reveal d2" data-page-node-id="3wKb8Jih6huvLxuOO84vGw"><div class="snum" data-page-node-id="ihi2yF7NdvJGG8lx8OjTNp">03</div><div data-page-node-id="aBZyYUIUGVLUa2QJ7XOqX1"><h4 data-page-node-id="W7IB78T3B00ycPH2182h7X">📊 数据共享与教学研究</h4><p data-page-node-id="NmPJru9KQE4iXlS4dCcDEo">判决书、合同用于教学、培训、研究或内部案例库建设，批量脱敏后安全共享，保留文书结构与争议焦点。</p></div></div>
+      <div class="scene reveal d3" data-page-node-id="RspYCqdt4k8NUnlAP6bxGA"><div class="snum" data-page-node-id="DAcT2qIp4eLMu9wjVODAqr">04</div><div data-page-node-id="5Ci6YO0ifSQiEIo0r8rvZ4"><h4 data-page-node-id="9JvWGgO2Y7YzIdPhO4j5k2">🗄️ 合规归档与存储</h4><p data-page-node-id="lqM6GM2NsPHSrYxy4T6WMM">需长期留存但不宜明文保存个人信息的文档，脱敏归档；映射加密另存，需要时凭密码精确还原。</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 目标用户 + 数据 ============ -->
+<section id="users" style="background:linear-gradient(180deg,var(--bg2),var(--bg))" data-page-node-id="w1d4dcqIHqHBv7HKNLlEcJ">
+  <div class="container" data-page-node-id="Qxr7Fv2SdfHxa7KV29ra0d">
+    <div class="center" data-page-node-id="CSin9nWV6qAbE6NwuCAC5z">
+      <div class="kicker reveal" data-page-node-id="Du8HzllCFlRcPEq9X72VkF">目标用户</div>
+      <h2 class="sec-title reveal" data-page-node-id="ghcfe2jfKCQoJoHxybtxbW">为谁而做</h2>
+    </div>
+    <div class="users" data-page-node-id="fNDjcv7N49GChDVHmHvteW">
+      <div class="ucard reveal" data-page-node-id="CvgPFMZOcnb3QObvHR1LmY"><span class="uico" data-page-node-id="v8YyyqRUaTOChBXwvxJDJv">⚖️</span><h4 data-page-node-id="oQRDfcBYWAKgK9hX5Qgg1q">律师 / 法务</h4><p data-page-node-id="ihs8CmWPBGmmS62DCSggmq">处理大量含当事人隐私的诉讼文书，在用 AI 辅助办案时的第一道安全闸。</p></div>
+      <div class="ucard reveal d1" data-page-node-id="CjHRVwR5MpMXymCPvx5AhR"><span class="uico" data-page-node-id="jvyLrQz37qgFldTnRJDevb">🏦</span><h4 data-page-node-id="GGuMEdRnRreqcNAkC1jpGz">金融 / 信贷机构</h4><p data-page-node-id="4TNJ7KcmAA1djyY1nxRll4">借款合同、征信材料外发或共享前的批量脱敏，满足个保法合规要求。</p></div>
+      <div class="ucard reveal d2" data-page-node-id="EpPYvVnlGoFQcPwEdKF4iV"><span class="uico" data-page-node-id="vLuMNPQorDUuVViDFvuHor">🏥</span><h4 data-page-node-id="EL7EeiEWZFKTlMQfKRYPlq">医疗机构</h4><p data-page-node-id="NJZz6zYGyB5SFAt8fiHfv5">病历、检查报告用于科研或会诊时，隐去患者身份与联系方式。</p></div>
+      <div class="ucard reveal d3" data-page-node-id="GVPXRq0KpEwFkiUhmE7oJF"><span class="uico" data-page-node-id="RrOTpsNrLsBIt4WkeD89aV">🏢</span><h4 data-page-node-id="zcDiV1KRgH3OpeDFrdNAWV">政企 / 档案部门</h4><p data-page-node-id="oFA6emtk15ZHBV287nI9Jj">人事、合同、信访材料归档与公开前的个人信息去标识化处理。</p></div>
+    </div>
+    <div style="margin-top:90px" data-page-node-id="mY6CPL78zOCl9eX4cqjFFl">
+      <div class="stats-band" data-page-node-id="hkS50RRjyfWRGSyw0OJ4V8">
+        <div class="stat-big reveal" data-page-node-id="BwszJiEoBLsumIRYnBI6LD"><div class="n" data-page-node-id="Q4I5Drut9FdB7866H0ErTb"><span class="cnt" data-count="0" data-page-node-id="8pgDFXI04sjMVmJFZAy7XB">0</span></div><div class="t" data-page-node-id="RT6sN8H3rnl2mvhf9cAfqi">网络请求 · 运行零外联</div></div>
+        <div class="stat-big reveal d1" data-page-node-id="udXH1vCHzhNjgBpao8h2sn"><div class="n" data-page-node-id="3KJJeYU6qPXd5Bt1b4e4CW"><span class="cnt" data-count="99" data-page-node-id="Gy62cxweogOzG8niO3J6I0">0</span><small data-page-node-id="wD2Wm4OfsqrGPtWtIxDqaT">%</small></div><div class="t" data-page-node-id="kutVoHdYrt1WSvPolrylvn">号码类识别召回率 ≥</div></div>
+        <div class="stat-big reveal d2" data-page-node-id="tqvXNfyrbYi58tLfo9aZE5"><div class="n" data-page-node-id="oNdbydso2daMDAyjePQR3G"><span class="cnt" data-count="14" data-page-node-id="Dhzh90nEKGbvWPdMXTI4Av">0</span><small data-page-node-id="glfrECBinHTjH4u2chZ6LV"> 类</small></div><div class="t" data-page-node-id="DFygZjnGWnKDk0gFx0KZ83">覆盖敏感信息类别</div></div>
+        <div class="stat-big reveal d3" data-page-node-id="AqgGtQKravUUJ2k59VVZSP"><div class="n" data-page-node-id="hqA2bRQz878jWjD2sTshDL"><span class="cnt" data-count="256" data-page-node-id="JBZkODQDxDKE3YxbtMCGuB">0</span><small data-page-node-id="sSeL8Ul3ElYKHRyF5MYoTR"> bit</small></div><div class="t" data-page-node-id="GgMq7nWylqaoLzmY1AxQl5">AES-256-GCM 映射加密</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 技术栈 ============ -->
+<section id="stack" style="padding-top:70px;padding-bottom:70px" data-page-node-id="6FaR2l3PXtJ2JVcd9Jxpbw">
+  <div class="container center" data-page-node-id="yu0wS2vcWPXnc2OsvLCqaV">
+    <div class="kicker reveal" data-page-node-id="CXI3IM4dh2qkz110Zi5osQ">技术栈</div>
+    <h2 class="sec-title reveal" style="font-size:clamp(20px,2.4vw,28px)" data-page-node-id="1Vny9kXZ4XWl6jN0i8uMKn">可靠，源于成熟的选型</h2>
+    <div class="stack reveal" data-page-node-id="GnXEkvtRZ5K5v8LAyEXImQ">
+      <span data-page-node-id="Ab9TjfLWQiN6JqR3bHrC8o">Python 3.11</span><span data-page-node-id="63SCCeP6YPfwQvRylzPcGD">PySide6</span><span data-page-node-id="DBdyGBaKcZvyHZbpnEXZwv">python-docx</span><span data-page-node-id="iWsVU7aZmjSLStdhvAse9h">PyMuPDF</span>
+      <span data-page-node-id="28JUGxUrO1Lhbnh31dHixP">RapidOCR</span><span data-page-node-id="cFCOV2moLajDa9ifvCJLXw">ONNX Runtime</span><span data-page-node-id="lHScNbVlQJAdqNPGCZot6E">RoBERTa-cluener2020</span>
+      <span data-page-node-id="yo1hkPmbkDxhHVQBOk9cbn">cryptography</span><span data-page-node-id="fplYQjPMk75zXfaarGyJOg">PyInstaller</span><span data-page-node-id="w58Ud3VC2Ptzj4Df9fRqnH">MIT License</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 下载渠道 ============ -->
+<section id="download" data-page-node-id="JmP4HsJ7dGT0SjuiyG1rRl">
+  <div class="container" data-page-node-id="tqCd2vcjDHhhZ9jfODfrkW">
+    <div class="center" data-page-node-id="c6RU6WFiLGG2NcSzvEOHrk">
+      <div class="kicker reveal" data-page-node-id="3Q8DjHdoGSDi4csE02GVMH">立即下载</div>
+      <h2 class="sec-title reveal" data-page-node-id="OBgtIQVKBYcMuLJAPrmD8l">选择你的<span class="grad-text" data-page-node-id="ddJFWlg8TPIv5TMEQmlxDv">下载方式</span></h2>
+      <p class="sec-sub reveal" data-page-node-id="kbmj0G9c29XFD3QaWV9ELR">开源免费 · Windows 10 / 11 64 位 · 下载即用，无需安装 Python</p>
+    </div>
+    <div class="dl-grid" data-page-node-id="0jtv79RXNO0dj26pklyoH3">
+      <!-- GitHub -->
+      <a class="dl-card reveal" href="https://github.com/hanbills52/jishi/releases/download/v1.0/jishi_v1.0_windows_x64.zip" target="_blank" rel="noopener" data-page-node-id="an1MzREmmbHPX1ME2yy6fE">
+        <div class="dl-ico gh" data-page-node-id="H0phP3X0c0LmxUxDadPqJ9">GH</div>
+        <div class="dl-name" data-page-node-id="V3rsu91TFMvzFCFeEV6nU2">GitHub Release</div>
+        <div class="dl-desc" data-page-node-id="gGHwfmqvsVlOsWQ8txKxCe">官方发布渠道 · 含完整源码与发布说明</div>
+        <span class="dl-btn primary" data-page-node-id="QSUNky24UScf5ihOsFHfCu">⬇ 下载 v1.0</span>
+      </a>
+      <!-- 夸克网盘 -->
+      <a class="dl-card reveal d1" href="https://pan.quark.cn/s/2d513d03acec" target="_blank" rel="noopener" data-page-node-id="PZQP0r059qnzT4Euyh4r74">
+        <div class="dl-ico qk" data-page-node-id="DUoWGEmiPQkS8esEmljNqX">夸</div>
+        <div class="dl-name" data-page-node-id="uJQ8af6jnL6bibxwyS9dGb">夸克网盘</div>
+        <div class="dl-desc" data-page-node-id="zQKFbFNIUqKAhyAIEakDon">国内高速下载 · 免登录 · 推荐国内用户</div>
+        <span class="dl-btn primary" data-page-node-id="YFKxE4I8l1XtYBWPi7dX73">⬇ 获取安装包</span>
+      </a>
+      <!-- 百度网盘（占位） -->
+      <div class="dl-card soon reveal d2" data-page-node-id="U2CTynEBHvieDh2wa9RiQ8">
+        <span class="soon-badge" data-page-node-id="tC2Oa7OFCwXYMxAUzyI0jv">即将上线</span>
+        <div class="dl-ico bd" data-page-node-id="tSwVd3nBmgerT2fMbVDGfM">度</div>
+        <div class="dl-name" data-page-node-id="LYY31XNHNbVLAg7xQUFQDA">百度网盘</div>
+        <div class="dl-desc" data-page-node-id="ArRRZjWxBf2rcxqqZFF39A">链接筹备中，敬请期待</div>
+        <span class="dl-btn disabled" data-page-node-id="kOodrbkdNj4TKeDQTkX5cx">暂未开放</span>
+      </div>
+    </div>
+    <div class="dl-foot reveal" data-page-node-id="YwY0jIetSva0q3rJr1r4hT">版本 v1.0 · Windows x64 · 约 159MB ｜ 遇到问题？<a href="https://github.com/hanbills52/jishi/issues" target="_blank" rel="noopener" data-page-node-id="LADSWxh3N41HYEBAcbWZCo">前往 GitHub 反馈</a></div>
+  </div>
+</section>
+
+<!-- ============ Footer ============ -->
+<footer data-page-node-id="3Qrn9qPB3ceTRwANXtVaG2">
+  <div class="container" data-page-node-id="I6Dx7gdk6hpf0mFb3iBRBV">
+    <div class="foot-inner" data-page-node-id="VOGybRAgVA3V9FTPKPF0jT">
+      <div class="foot-col" style="max-width:340px" data-page-node-id="n4ZOCUJQQOZCkADIVCJGAt">
+        <a href="#hero" class="logo" style="margin-bottom:14px" data-page-node-id="Fgd5NvrpEbARWo1YSY8rzc"><span class="logo-mark" data-page-node-id="hnR7lMzc2l6maHa0c6TOpO">基</span>基石</a>
+        <p data-page-node-id="86N2qawIw1ARx7p2yOa7l4">本地化批量文档脱敏工具。让敏感信息止步于本机。</p>
+        <div class="license-note" data-page-node-id="feO7F6fMUWOPF5pm5lfeyK">⚖️ <b data-page-node-id="YjqzvxWoLmdNKv6dJZ9faK">二进制分发须知</b>：预编译可执行包包含 AGPL-3.0 组件（PyMuPDF）。分发该二进制时须对应公开源代码——相应源码见 GitHub 仓库。源代码本身采用 MIT 许可。</div>
+      </div>
+      <div class="foot-col" data-page-node-id="tkfxLT9uOlVhuYDuGDc3jG">
+        <h5 data-page-node-id="g2GMXkCObnP0VNilTFuDQ5">产品</h5>
+        <a href="#value" data-page-node-id="s0yLXmoV32mBjPuNJNO1xx">核心价值</a><a href="#demo" data-page-node-id="BkcG81JAFiudl0d8gfKr9r">在线演示</a><a href="#features" data-page-node-id="CuAVbFqaVtKELanAC76foD">功能模块</a><a href="#scenes" data-page-node-id="C5pyQeYcOQ5gerXb4cNQsh">使用场景</a><a href="#download" data-page-node-id="5iC6ZIepHmjfy6UhY1QKq7">下载</a>
+      </div>
+      <div class="foot-col" data-page-node-id="4ZevZh5UFXyv8nsAg0yFCa">
+        <h5 data-page-node-id="OIByTtVrYltIkeDG8jT23m">下载渠道</h5>
+        <a href="https://github.com/hanbills52/jishi/releases/tag/v1.0" target="_blank" rel="noopener" data-page-node-id="A0MMWlN4hA0YQ6AodoAZ1J">GitHub Release</a>
+        <a href="https://pan.quark.cn/s/2d513d03acec" target="_blank" rel="noopener" data-page-node-id="PfFibAKgNGZAcCSNT5rzYy">夸克网盘</a>
+        <a href="https://github.com/hanbills52/jishi" target="_blank" rel="noopener" data-page-node-id="9o1lvo56ZkEqUP5BAfb858">GitHub 仓库</a>
+      </div>
+      <div class="foot-col" data-page-node-id="zIltQ7RzguOXc3ipU7Oysf">
+        <h5 data-page-node-id="KMi5EExPJkIj2BpWKetBzJ">开源</h5>
+        <a href="https://github.com/hanbills52/jishi/blob/master/LICENSE" target="_blank" rel="noopener" data-page-node-id="7CaIDGLjZgd4wm4B7qCLu8">MIT License</a>
+        <a href="https://github.com/hanbills52/jishi/issues" target="_blank" rel="noopener" data-page-node-id="eWW6VXOtfVmhJqPf0DJ2EB">问题反馈</a>
+        <a href="https://github.com/hanbills52/jishi/stargazers" target="_blank" rel="noopener" data-page-node-id="L3Tz83wDvbGIfre9Sfh5cU">Star 支持</a>
+      </div>
+    </div>
+    <div class="foot-bottom" data-page-node-id="90r0xIZApOLbostHffDQDe">
+      <span data-page-node-id="CSkSldV9q36kEL0zeB3Fet">© 2026 基石 Jishi · 纯本地离线 · 隐私不出机</span>
+      <span data-page-node-id="8k0GzQ8H4DTsuZtDnFVWpQ">Windows 10 / 11 64 位 · 脱敏效果以人工确认为准</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ================================================================
+   基石宣传站交互脚本
+================================================================ */
+(function(){
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+
+/* ---------- 导航 ---------- */
+const nav=$('#nav');
+addEventListener('scroll',()=>nav.classList.toggle('scrolled',scrollY>30),{passive:true});
+$('#hamBtn').addEventListener('click',()=>$('#navLinks').classList.toggle('open'));
+$$('.nav-links a').forEach(a=>a.addEventListener('click',()=>$('#navLinks').classList.remove('open')));
+
+/* ---------- 滚动显现 ---------- */
+const io=new IntersectionObserver(es=>es.forEach(e=>{
+  if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}
+}),{threshold:.12});
+$$('.reveal').forEach(el=>io.observe(el));
+
+/* ---------- 数字计数 ---------- */
+const cio=new IntersectionObserver(es=>es.forEach(e=>{
+  if(!e.isIntersecting)return;cio.unobserve(e.target);
+  const el=e.target,end=+el.dataset.count,suf=el.dataset.suffix||'',t0=performance.now(),dur=1400;
+  (function tick(t){const p=Math.min((t-t0)/dur,1),v=Math.round(end*(1-Math.pow(1-p,3)));
+    el.textContent=v+suf; if(p<1)requestAnimationFrame(tick);})(t0);
+}),{threshold:.6});
+$$('[data-count]').forEach(el=>cio.observe(el));
+
+/* ---------- 导航 scroll-spy ---------- */
+const spyMap={};$$('.nav-links a[data-spy]').forEach(a=>spyMap[a.dataset.spy]=a);
+const sio=new IntersectionObserver(es=>es.forEach(e=>{
+  const a=spyMap[e.target.id];if(!a)return;
+  if(e.isIntersecting){$$('.nav-links a').forEach(x=>x.classList.remove('active'));a.classList.add('active');}
+}),{rootMargin:'-40% 0px -55% 0px'});
+['value','demo','features','scenes','users','download'].forEach(id=>{const s=document.getElementById(id);if(s)sio.observe(s);});
+
+/* ================================================================
+   Hero 演示窗：循环打字 + 标记敏感词
+================================================================ */
+const heroLines=[
+  {t:'原告 <span class="ent ent-rule" style="animation-delay:.2s">张三</span> 诉被告 <span class="ent ent-lex" style="animation-delay:.6s">北京恒信科技有限公司</span>'},
+  {t:'买卖合同纠纷一案，身份证号 <span class="ent ent-rule" style="animation-delay:1s">110***********1234</span>'},
+  {t:'联系电话 <span class="ent ent-rule" style="animation-delay:1.4s">138****5678</span>，住所地 <span class="ent ent-lex" style="animation-delay:1.8s">甲地址</span>'},
+  {t:'法定代表人 <span class="ent ent-mask" style="animation-delay:2.2s">乙某</span>，开户行 <span class="ent ent-lex" style="animation-delay:2.6s">乙公司</span>'},
+];
+const heroDoc=$('#heroDoc');
+function heroPlay(){
+  heroDoc.innerHTML=heroLines.map(l=>`<div>${l.t}</div>`).join('');
+}
+heroPlay();setInterval(heroPlay,7000);
+
+/* ================================================================
+   交互演示器（核心）
+================================================================ */
+// 词元：text=显示, cat/layer/conf/alias; layer: rule|lex|ner
+const TOKENS=[
+  {p:'原告 '},
+  {t:'张三',cat:'人名',layer:'lex',conf:.85,alias:'甲某'},
+  {p:'（身份证号：'},
+  {t:'110101199003071234',cat:'身份证',layer:'rule',conf:.99,alias:'110***********1234'},
+  {p:'，联系电话：'},
+  {t:'13812345678',cat:'手机号',layer:'rule',conf:.99,alias:'138****5678'},
+  {p:'）诉被告 '},
+  {t:'北京恒信科技有限公司',cat:'公司',layer:'lex',conf:.8,alias:'甲公司'},
+  {p:' 买卖合同纠纷一案。原告住所地：'},
+  {t:'北京市海淀区中关村大街27号',cat:'地址',layer:'ner',conf:.7,alias:'甲地址'},
+  {p:'。被告法定代表人 '},
+  {t:'李四',cat:'人名',layer:'ner',conf:.8,alias:'乙某'},
+  {p:'，开户行：'},
+  {t:'招商银行北京分行',cat:'公司',layer:'lex',conf:.8,alias:'乙公司'},
+  {p:' '},
+  {t:'6225880212345678',cat:'银行卡',layer:'rule',conf:.99,alias:'6225********5678'},
+  {p:'。原告主张货款 1,250,000 元及利息。'}
+];
+const LAYER_NAME={rule:'规则层',lex:'词典层',ner:'NER 层'};
+let scanned=false, masked=false, view='orig';
+const state=TOKENS.map(tk=>({adopted:tk.layer==='rule'})); // rule 默认生效，其余待确认
+
+const demoDoc=$('#demoDoc'), panel=$('#panelContent'), btnScan=$('#btnScan'),
+      btnMask=$('#btnMask'), demoLog=$('#demoLog'), adoptAll=$('#adoptAll');
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+function renderDoc(){
+  demoDoc.innerHTML=TOKENS.map((tk,i)=>{
+    if(tk.p!==undefined)return esc(tk.p);
+    const st=state[i];
+    if(!scanned)return esc(tk.t);
+    if(view==='mask'&&masked&&st.adopted)
+      return `<span class="tok masked" data-i="${i}">${esc(tk.alias)}<span class="tip"><b>${esc(tk.cat)}</b> · 已脱敏<br>原：${esc(tk.t)}</span></span>`;
+    if(st.adopted)
+      return `<span class="tok scan-${tk.layer}" data-i="${i}">${esc(tk.t)}<span class="tip"><b>${esc(tk.cat)}</b> · ${LAYER_NAME[tk.layer]}<br>置信度 ${tk.conf} · 已生效 → ${esc(tk.alias)}</span></span>`;
+    return `<span class="tok scan-${tk.layer} pending" data-i="${i}">${esc(tk.t)}<span class="tip"><b>${esc(tk.cat)}</b> · ${LAYER_NAME[tk.layer]}<br>置信度 ${tk.conf} · 待确认（不生效）</span></span>`;
+  }).join('');
+}
+function renderPanel(){
+  if(!scanned)return;
+  const pend=[],act=[];
+  TOKENS.forEach((tk,i)=>{if(tk.t===undefined)return;
+    (state[i].adopted?act:pend).push({tk,i});});
+  const grp=(list,title,cls)=>list.length?`
+    <div class="mgroup"><h5>${title}<span class="cnt">${list.length}</span></h5>
+    ${list.map(({tk,i})=>`
+      <div class="mitem">
+        <span class="orig">${esc(tk.t)}</span><span class="arrow">→</span><span class="alias">${esc(tk.alias)}</span>
+        <span class="layertag ly-${tk.layer}">${LAYER_NAME[tk.layer]}</span>
+        ${cls==='pend'
+          ?`<button class="adopt-btn" data-adopt="${i}">采纳</button>`
+          :`<button class="switch on" data-toggle="${i}" title="启停"></button>`}
+      </div>`).join('')}</div>`:'';
+  panel.innerHTML=
+    grp(pend,'待确认 · 默认不生效','pend')+
+    grp(act,'已生效映射','act')+
+    (!pend.length&&!act.length?'<div class="empty-hint">无</div>':'');
+  adoptAll.style.display=pend.length?'inline-flex':'none';
+}
+function renderLog(){
+  if(!scanned)return;
+  const c={rule:0,lex:0,ner:0,pend:0};
+  TOKENS.forEach((tk,i)=>{if(tk.t===undefined)return;c[tk.layer]++;if(!state[i].adopted)c.pend++;});
+  const adopted=TOKENS.filter((tk,i)=>tk.t&&state[i].adopted).length;
+  demoLog.innerHTML=masked
+    ?`<span class="ok">✓ 已脱敏导出</span><span>生效映射 <b class="ok">${adopted}</b></span><span>待确认跳过 <b style="color:var(--amber)">${c.pend}</b></span><span>映射文件 <b class="ok">AES-256-GCM 加密</b></span>`
+    :`<span class="ok">✓ 扫描完成</span><span>规则层 <b class="ok">${c.rule}</b></span><span>词典层 <b class="ok">${c.lex}</b></span><span>NER 层 <b class="ok">${c.ner}</b></span><span>待确认 <b style="color:var(--amber)">${c.pend}</b></span>`;
+}
+function renderAll(){renderDoc();renderPanel();renderLog();}
+
+btnScan.addEventListener('click',()=>{
+  scanned=true;masked=false;btnMask.disabled=false;
+  btnScan.textContent='✓ 已识别';btnScan.disabled=true;
+  renderAll();
+});
+btnMask.addEventListener('click',()=>{
+  if(!state.some(s=>s.adopted))return;
+  masked=true;view='mask';
+  $('#viewMask').classList.add('on');$('#viewOrig').classList.remove('on');
+  renderAll();
+});
+$('#btnReset').addEventListener('click',()=>{
+  scanned=false;masked=false;view='orig';
+  TOKENS.forEach((tk,i)=>state[i].adopted=(tk.layer==='rule'));
+  btnScan.textContent='① 扫描识别';btnScan.disabled=false;btnMask.disabled=true;
+  $('#viewOrig').classList.add('on');$('#viewMask').classList.remove('on');
+  demoDoc.innerHTML=TOKENS.map(tk=>tk.p!==undefined?esc(tk.p):esc(tk.t)).join('');
+  panel.innerHTML='<div class="empty-hint">点击左上角「① 扫描识别」<br>三层引擎将自动标记敏感信息<br><br><span style="font-size:24px">🔍</span></div>';
+  demoLog.innerHTML='<span>⏳ 待扫描</span><span>规则层 <b class="ok">0</b></span><span>词典层 <b class="ok">0</b></span><span>NER 层 <b class="ok">0</b></span><span>待确认 <b style="color:var(--amber)">0</b></span>';
+});
+$('#viewOrig').addEventListener('click',()=>{view='orig';$('#viewOrig').classList.add('on');$('#viewMask').classList.remove('on');renderDoc();});
+$('#viewMask').addEventListener('click',()=>{if(!masked)return;view='mask';$('#viewMask').classList.add('on');$('#viewOrig').classList.remove('on');renderDoc();});
+adoptAll.addEventListener('click',()=>{TOKENS.forEach((tk,i)=>{if(tk.t)state[i].adopted=true;});renderAll();});
+panel.addEventListener('click',e=>{
+  const ad=e.target.closest('[data-adopt]'),tg=e.target.closest('[data-toggle]');
+  if(ad){state[+ad.dataset.adopt].adopted=true;renderAll();}
+  else if(tg){const i=+tg.dataset.toggle;state[i].adopted=!state[i].adopted;renderAll();}
+});
+renderDoc();
+
+/* ================================================================
+   模块1 pipeline 点亮 + 置信度条
+================================================================ */
+const stages=$$('#pipeline .pstage');
+const f1io=new IntersectionObserver(es=>es.forEach(e=>{
+  if(!e.isIntersecting)return;f1io.unobserve(e.target);
+  stages.forEach((s,i)=>setTimeout(()=>s.classList.add('lit'),i*450));
+  setTimeout(()=>{$('#cmFill').style.width='92%';$('#cmVal').textContent='0.99 → auto';},1400);
+}),{threshold:.4});
+f1io.observe($('#f1'));
+
+/* ================================================================
+   模块2 文档类型 tab
+================================================================ */
+const DOC_DEMO={
+  docx:{html:'原告 <span class="rl-ent a">甲某</span>（身份证号：<span class="rl-ent a">110***********1234</span>）<br>诉被告 <span class="rl-ent a">甲公司</span> 买卖合同纠纷……<br><span style="color:var(--faint);font-size:11.5px">└ 表格 / 页眉 / 文本框内的命中同样被替换，样式不变</span>',note:'run 级替换，跨 run 命中正确合并，导出排版零差异'},
+  pdf:{html:'原告 <span class="rl-ent a">甲某</span> 与 <span class="rl-ent a">甲公司</span> 于 2023 年签订合同……<br><span style="color:var(--faint);font-size:11.5px">└ 代称过长时自动缩小字号（每次 -0.5pt 至 6pt）防溢出</span>',note:'PyMuPDF redaction 坐标替换，原敏感词不可选中、彻底抹除'},
+  scan:{html:'<span style="color:var(--amber);font-size:11.5px">[扫描件 · 经 RapidOCR 识别]</span><br>原告 <span class="rl-ent a">甲某</span>，男，汉族，住 <span class="rl-ent a">甲地址</span>……<br><span style="color:var(--faint);font-size:11.5px">└ OCR 结果缓存，扫描阶段取文本、脱敏阶段取坐标，不二次识别</span>',note:'RapidOCR（DPI 200 保召回），多文件并行自适应线程预算'}
+};
+const docTabs=$$('#docTabs button');
+docTabs.forEach(b=>b.addEventListener('click',()=>{
+  docTabs.forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  const d=DOC_DEMO[b.dataset.doc];
+  $('#docDemo').innerHTML=d.html;
+  $('#docNote span:last-child').textContent=d.note;
+}));
+$('#docDemo').innerHTML=DOC_DEMO.docx.html;
+$('#docNote span:last-child').textContent=DOC_DEMO.docx.note;
+
+/* ================================================================
+   模块3 代称生成器
+================================================================ */
+const GAN='甲乙丙丁戊己庚辛壬癸'.split(''),ZHI='子丑寅卯辰巳午未申酉戌亥'.split('');
+const SUFFIX={person:'某',company:'公司',org:'单位',address:'地址'};
+let aliasCat='person',aliasCount=0;
+function genAlias(cat,n){
+  const suf=SUFFIX[cat];
+  if(n<10)return GAN[n]+suf;
+  if(n<22)return ZHI[n-10]+suf;
+  const r=n-22;return GAN[r%10]+suf+(Math.floor(r/10)+2);
+}
+const aliasDisplay=$('#aliasDisplay'),aliasSeq=$('#aliasSeq');
+function pushAlias(){
+  const a=genAlias(aliasCat,aliasCount++);
+  aliasDisplay.textContent=a;
+  aliasDisplay.style.animation='none';void aliasDisplay.offsetWidth;
+  aliasDisplay.style.animation='chipIn .45s var(--ease)';
+  const chip=document.createElement('span');chip.className='alias-chip';chip.textContent=a;
+  aliasSeq.appendChild(chip);
+  if(aliasSeq.children.length>16)aliasSeq.removeChild(aliasSeq.firstChild);
+}
+$$('#aliasCat button').forEach(b=>b.addEventListener('click',()=>{
+  $$('#aliasCat button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  aliasCat=b.dataset.cat;aliasCount=0;aliasSeq.innerHTML='';pushAlias();
+}));
+$('#aliasNext').addEventListener('click',pushAlias);
+pushAlias();
+
+/* ================================================================
+   模块4 解锁 + 回溯对比滑块
+================================================================ */
+let unlocked=false;
+$('#pwBtn').addEventListener('click',()=>{
+  const v=$('#pwInput').value;
+  if(!v){$('#pwInput').focus();$('#pwInput').style.borderColor='var(--rose)';
+    setTimeout(()=>$('#pwInput').style.borderColor='',900);return;}
+  unlocked=true;
+  $('#lockBox').classList.add('locked');$('#lockIcon').textContent='🔓';
+  const rw=$('#restoreWrap');rw.style.opacity=1;rw.style.pointerEvents='auto';
+  $$('.cf-node').forEach((n,i)=>setTimeout(()=>n.classList.add('hot'),i*250));
+  $('#restoreHint').innerHTML='✓ 已解锁 · 拖动滑块，左侧是 AI 处理后的脱敏文，右侧是还原出的原文';
+  $('#pwBtn').textContent='✓ 已解锁';$('#pwBtn').disabled=true;$('#pwInput').disabled=true;
+});
+const rwrap=$('#restoreWrap');
+function setRestore(clientX){
+  if(!unlocked)return;
+  const r=rwrap.getBoundingClientRect();
+  let p=(clientX-r.left)/r.width*100;p=Math.max(4,Math.min(96,p));
+  rwrap.style.setProperty('--pos',p+'%');
+}
+let dragging=false;
+rwrap.addEventListener('pointerdown',e=>{dragging=true;setRestore(e.clientX);});
+addEventListener('pointermove',e=>{if(dragging)setRestore(e.clientX);});
+addEventListener('pointerup',()=>dragging=false);
+
+/* ================================================================
+   平滑滚动（带导航偏移）
+================================================================ */
+$$('a[href^="#"]').forEach(a=>a.addEventListener('click',e=>{
+  const id=a.getAttribute('href');if(id.length<2)return;
+  const el=document.querySelector(id);if(!el)return;
+  e.preventDefault();
+  const y=el.getBoundingClientRect().top+scrollY-70;
+  scrollTo({top:y,behavior:'smooth'});
+}));
+})();
+</script>
+</body>
+</html>
