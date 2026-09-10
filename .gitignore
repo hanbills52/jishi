@@ -9,7 +9,9 @@ build/
 build_smoke/
 dist/
 dist_smoke/
+# PyInstaller spec 例外保留：基石.spec 是构建配置，需纳入版本控制
 *.spec
+!基石.spec
 
 # NER 大模型（约 800MB，超 GitHub 单文件限制；按需本地放置 app/resources/models/ner/）
 app/resources/models/

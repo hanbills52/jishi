@@ -68,8 +68,38 @@ app/
 
 完整设计依据见 [实施方案.md](./实施方案.md)。
 
+## 打包构建
+
+可执行版本基于 PyInstaller（onedir 模式）打包，配置见 [`基石.spec`](./基石.spec)：
+
+```bash
+pip install pyinstaller
+pyinstaller 基石.spec                # 产物输出到 dist/基石/
+```
+
+NER 模型（约 800MB）不随仓库分发，如需 NER 层，按"快速开始"的说明自行放置到 `app/resources/models/ner/`，或在打包后将其放到 `dist/基石/models/ner/`（exe 同级外置目录）。
+
+## 下载
+
+预编译可执行包见 [Releases](https://github.com/hanbills52/jishi/releases)。解压后双击 `基石.exe` 即可使用，无需安装 Python。
+
 ## 许可证
 
-本项目代码采用 [MIT License](./LICENSE) 开源。
+本项目源代码采用 [MIT License](./LICENSE) 开源。
 
-> 依赖说明：分发可执行包时，注意 PyMuPDF 为 AGPL-3.0 许可，rapidocr-onnxruntime 为 Apache-2.0。商业分发需自行评估依赖许可。
+### 二进制分发须知
+
+**预编译可执行包（`基石.exe` 及其 `_internal` 目录）包含 AGPL-3.0 许可的组件（PyMuPDF）。** 按 AGPL 条款，通过网络或介质向他人分发该二进制时，必须对应公开完整对应源代码——相应源代码见本仓库。商业分发（闭源场景）请改用 [PyMuPDF 商业授权](https://mupdf.com/licensing/) 或替换为 MIT/ Apache 等许可的 PDF 引擎。
+
+主要运行时依赖许可一览：
+
+| 依赖 | 许可 |
+|---|---|
+| PyMuPDF (fitz) | **AGPL-3.0**（影响二进制分发） |
+| PySide6 (Qt) | LGPL-3.0 / GPL / 商业（动态链接，LGPL 合规可用） |
+| rapidocr-onnxruntime | Apache-2.0 |
+| onnxruntime | MIT |
+| cryptography | Apache-2.0 / BSD-3-Clause |
+| python-docx | MIT |
+
+> 即：源码层面 MIT 开源无障碍；二进制层面因 PyMuPDF 的 AGPL，分发时须遵守上述公开源代码义务。
